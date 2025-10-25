@@ -9,9 +9,11 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import type { IncenseType } from '@/lib/types';
-import { CheckCircle2, Flame, Sparkles } from 'lucide-react';
+import { CheckCircle2, Flame, Sparkles, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useBurnIncense } from '@/hooks/use-burn-incense';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 interface BurnIncenseDialogProps {
   open: boolean;
@@ -26,32 +28,60 @@ export function BurnIncenseDialog({
   incense,
   onBurnSuccess
 }: BurnIncenseDialogProps) {
-  const [burning, setBurning] = useState(false);
   const [burned, setBurned] = useState(false);
+  const { connected } = useWallet();
+  const { loading, error, result, burnIncense, resetState } = useBurnIncense();
+
+  // 重置状态当对话框关闭时
+  useEffect(() => {
+    if (!open) {
+      setBurned(false);
+      resetState();
+    }
+  }, [open, resetState]);
 
   const handleBurn = async () => {
-    setBurning(true);
-    console.log('[solji] Burning incense:', incense.name);
-
-    // Simulate burning transaction
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    console.log(
-      '[solji] Incense burned successfully, merit points earned:',
-      incense.meritPoints
-    );
-    setBurning(false);
-    setBurned(true);
-
-    if (onBurnSuccess) {
-      onBurnSuccess();
+    if (!connected) {
+      alert('请先连接钱包');
+      return;
     }
 
-    // Reset after showing success
-    setTimeout(() => {
-      setBurned(false);
-      onOpenChange(false);
-    }, 2000);
+    try {
+      console.log('[solji] Burning incense:', incense.name);
+
+      // 将前端香类型映射到合约香类型ID
+      const incenseIdMap: Record<string, number> = {
+        'basic': 1,
+        'sandalwood': 2,
+        'dragon': 3,
+        'supreme': 4,
+      };
+
+      const incenseId = incenseIdMap[incense.id] || 1;
+      const amount = 1; // 每次烧一根香
+
+      const burnResult = await burnIncense({
+        incenseId,
+        amount,
+        hasMeritAmulet: true, // 暂时设为true，后续可以从用户状态获取
+      });
+
+      console.log('[solji] Incense burned successfully:', burnResult);
+      setBurned(true);
+
+      if (onBurnSuccess) {
+        onBurnSuccess();
+      }
+
+      // Reset after showing success
+      setTimeout(() => {
+        setBurned(false);
+        onOpenChange(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error('[solji] Burn incense failed:', error);
+      // 错误已经在 hook 中处理，这里不需要额外处理
+    }
   };
 
   return (
@@ -112,20 +142,28 @@ export function BurnIncenseDialog({
                 </div>
               </div>
 
+              {/* Error Display */}
+              {error && (
+                <div className='flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700'>
+                  <AlertCircle className='w-4 h-4' />
+                  <span className='text-sm'>{error}</span>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className='flex gap-3'>
                 <Button
                   variant='outline'
                   onClick={() => onOpenChange(false)}
                   className='flex-1'
-                  disabled={burning}>
+                  disabled={loading}>
                   Cancel
                 </Button>
                 <Button
                   onClick={handleBurn}
                   className='flex-1'
-                  disabled={burning}>
-                  {burning ? (
+                  disabled={loading || !connected}>
+                  {loading ? (
                     <>
                       <Flame className='w-4 h-4 mr-2 animate-pulse' />
                       Burning...
@@ -150,10 +188,15 @@ export function BurnIncenseDialog({
               <p className='text-sm text-muted-foreground'>
                 You earned{' '}
                 <span className='font-semibold text-primary'>
-                  +{incense.meritPoints} merit points
+                  +{result?.meritPointsEarned || incense.meritPoints} merit points
                 </span>{' '}
                 and minted an Incense NFT
               </p>
+              {result?.transactionSignature && (
+                <p className='text-xs text-muted-foreground mt-2'>
+                  Transaction: {result.transactionSignature.slice(0, 8)}...
+                </p>
+              )}
             </div>
           </div>
         )}
