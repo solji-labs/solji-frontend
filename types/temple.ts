@@ -3956,6 +3956,119 @@ export type Temple = {
             ]
         },
         {
+            "name": "updateNftUri",
+            "docs": [
+                "Update NFT URI"
+            ],
+            "discriminator": [
+                85,
+                135,
+                208,
+                222,
+                93,
+                250,
+                253,
+                217
+            ],
+            "accounts": [
+                {
+                    "name": "adminAuthority",
+                    "docs": [
+                        "The admin wallet signing the transaction (payer/fee payer)"
+                    ],
+                    "signer": true
+                },
+                {
+                    "name": "templeAuthority",
+                    "writable": true
+                },
+                {
+                    "name": "templeConfig",
+                    "docs": [
+                        "Temple Configuration Account - This PDA is the CPI Signer, must be 'mut'."
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    116,
+                                    101,
+                                    109,
+                                    112,
+                                    108,
+                                    101,
+                                    95,
+                                    118,
+                                    49
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "nftMintAccount",
+                    "docs": [
+                        "NFT Mint Account"
+                    ]
+                },
+                {
+                    "name": "metaAccount",
+                    "docs": [
+                        "Its address is validated via the seeds and seeds::program constraints below."
+                    ],
+                    "writable": true,
+                    "pda": {
+                        "seeds": [
+                            {
+                                "kind": "const",
+                                "value": [
+                                    109,
+                                    101,
+                                    116,
+                                    97,
+                                    100,
+                                    97,
+                                    116,
+                                    97
+                                ]
+                            },
+                            {
+                                "kind": "account",
+                                "path": "tokenMetadataProgram"
+                            },
+                            {
+                                "kind": "account",
+                                "path": "nftMintAccount"
+                            }
+                        ],
+                        "program": {
+                            "kind": "account",
+                            "path": "tokenMetadataProgram"
+                        }
+                    }
+                },
+                {
+                    "name": "tokenMetadataProgram",
+                    "docs": [
+                        "Metaplex Token Metadata Program"
+                    ],
+                    "address": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+                }
+            ],
+            "args": [
+                {
+                    "name": "incenseId",
+                    "type": "u8"
+                },
+                {
+                    "name": "newUri",
+                    "type": "string"
+                }
+            ]
+        },
+        {
             "name": "updateShopItems",
             "docs": [
                 "Update shop items configuration"
