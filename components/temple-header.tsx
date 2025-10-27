@@ -1,14 +1,13 @@
 'use client';
 
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuList,
-  NavigationMenuTrigger
-} from '@/components/ui/navigation-menu';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { useI18n } from '@/lib/i18n/context';
-import { Flame } from 'lucide-react';
+import { ChevronDown, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { LanguageSwitcher } from './language-switcher';
@@ -39,39 +38,30 @@ export function TempleHeader() {
             className='text-sm hover:text-primary transition-colors'>
             {t.nav.temple}
           </Link>
-          <NavigationMenu>
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger className='text-sm'>
-                  {t.nav.activities}
-                </NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <div className='w-48 p-2'>
-                    <Link
-                      href='/temple/incense'
-                      className='block px-3 py-2 text-sm hover:bg-accent rounded-md'>
-                      {t.nav.burnIncense}
-                    </Link>
-                    <Link
-                      href='/temple/fortune'
-                      className='block px-3 py-2 text-sm hover:bg-accent rounded-md'>
-                      {t.nav.drawFortune}
-                    </Link>
-                    <Link
-                      href='/temple/wishes'
-                      className='block px-3 py-2 text-sm hover:bg-accent rounded-md'>
-                      {t.nav.makeWish}
-                    </Link>
-                    <Link
-                      href='/temple/donate'
-                      className='block px-3 py-2 text-sm hover:bg-accent rounded-md'>
-                      {t.nav.donate}
-                    </Link>
-                  </div>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type='button'
+                className='flex items-center gap-1 text-sm hover:text-primary transition-colors'>
+                {t.nav.activities}
+                <ChevronDown className='h-4 w-4' aria-hidden='true' />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='start' className='w-48 p-1'>
+              <DropdownMenuItem asChild className='text-sm'>
+                <Link href='/temple/incense'>{t.nav.burnIncense}</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className='text-sm'>
+                <Link href='/temple/fortune'>{t.nav.drawFortune}</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className='text-sm'>
+                <Link href='/temple/wishes'>{t.nav.makeWish}</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className='text-sm'>
+                <Link href='/temple/donate'>{t.nav.donate}</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Link
             href='/temple/dashboard'
             className='text-sm hover:text-primary transition-colors'>
