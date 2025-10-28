@@ -68,26 +68,139 @@ export function createProgram(wallet: Wallet): Program<Temple> {
     return new Program(templeIdl as Idl, provider) as Program<Temple>;
 }
 
-// 获取 PDA 地址的工具函数
+// ==================== 通用 PDA 工具函数 ====================
+
+/**
+ * 获取 PDA 地址的通用工具函数
+ */
 export function getPdaAddress(seeds: (Buffer | Uint8Array)[], programId: PublicKey): PublicKey {
     const [pda] = PublicKey.findProgramAddressSync(seeds, programId);
     return pda;
 }
- 
- 
- 
- 
 
-// 获取 NFT 铸造账户 PDA
-export function getNftMintPda(templeConfigPda: PublicKey, incenseId: number, programId: PublicKey): PublicKey {
+/**
+ * 获取当前程序 ID
+ */
+export function getProgramId(): PublicKey {
+    const network = getCurrentNetwork();
+    return new PublicKey(NETWORK_CONFIG[network as keyof typeof NETWORK_CONFIG].programId);
+}
+
+// ==================== 寺庙相关 PDA ====================
+
+/**
+ * 获取寺庙配置 PDA
+ * Seeds: ["temple_config_v1"]
+ */
+export function getTempleConfigPda(programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    return getPdaAddress([Buffer.from('temple_config_v1')], pid);
+}
+
+/**
+ * 获取用户状态 PDA
+ * Seeds: ["user_state_v1", userPubkey]
+ */
+export function getUserStatePda(userPubkey: PublicKey, programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    return getPdaAddress([
+        Buffer.from('user_state_v1'),
+        userPubkey.toBuffer()
+    ], pid);
+}
+
+/**
+ * 获取用户香火状态 PDA
+ * Seeds: ["user_incense_state_v1", userPubkey]
+ */
+export function getUserIncenseStatePda(userPubkey: PublicKey, programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    return getPdaAddress([
+        Buffer.from('user_incense_state_v1'),
+        userPubkey.toBuffer()
+    ], pid);
+}
+
+/**
+ * 获取用户捐赠状态 PDA
+ * Seeds: ["user_donation_state_v1", userPubkey]
+ */
+export function getUserDonationStatePda(userPubkey: PublicKey, programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    return getPdaAddress([
+        Buffer.from('user_donation_state_v1'),
+        userPubkey.toBuffer()
+    ], pid);
+}
+
+// ==================== 香火相关 PDA ====================
+
+/**
+ * 获取香火类型配置 PDA
+ * Seeds: ["incense_type_v1", incenseTypeId]
+ */
+export function getIncenseTypeConfigPda(incenseTypeId: number, programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    return getPdaAddress([
+        Buffer.from('incense_type_v1'),
+        Buffer.from([incenseTypeId])
+    ], pid);
+}
+
+/**
+ * 获取香火 NFT Mint PDA
+ * Seeds: ["IncenseNFT", templeConfigPda, incenseTypeId]
+ */
+export function getIncenseNftMintPda(incenseTypeId: number, programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    const templeConfigPda = getTempleConfigPda(pid);
     return getPdaAddress([
         Buffer.from('IncenseNFT'),
         templeConfigPda.toBuffer(),
-        Buffer.from([incenseId])
-    ], programId);
+        Buffer.from([incenseTypeId])
+    ], pid);
 }
 
-// 获取元数据账户 PDA
+// ==================== 许愿相关 PDA ====================
+
+/**
+ * 获取许愿 PDA
+ * Seeds: ["wish_v1", creator, wishId]
+ */
+export function getWishPda(creator: PublicKey, wishId: number, programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    const wishIdBuffer = Buffer.alloc(8);
+    wishIdBuffer.writeBigUInt64LE(BigInt(wishId));
+    
+    return getPdaAddress([
+        Buffer.from('wish_v1'),
+        creator.toBuffer(),
+        wishIdBuffer
+    ], pid);
+}
+
+// ==================== 捐赠相关 PDA ====================
+
+/**
+ * 获取徽章 NFT Mint PDA
+ * Seeds: ["badge_nft_v1", templeConfigPda, userPubkey]
+ */
+export function getBadgeNftMintPda(userPubkey: PublicKey, programId?: PublicKey): PublicKey {
+    const pid = programId || getProgramId();
+    const templeConfigPda = getTempleConfigPda(pid);
+    return getPdaAddress([
+        Buffer.from('badge_nft_v1'),
+        templeConfigPda.toBuffer(),
+        userPubkey.toBuffer()
+    ], pid);
+}
+
+// ==================== NFT 相关 PDA ====================
+
+/**
+ * 获取元数据账户 PDA
+ * Seeds: ["metadata", TOKEN_METADATA_PROGRAM_ID, mint]
+ */
 export function getMetadataPda(mint: PublicKey): PublicKey {
     const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
     return getPdaAddress([
@@ -97,8 +210,23 @@ export function getMetadataPda(mint: PublicKey): PublicKey {
     ], TOKEN_METADATA_PROGRAM_ID);
 }
 
-// 获取关联代币账户地址
+/**
+ * 获取关联代币账户地址（同步版本）
+ */
+export function getAssociatedTokenAddressSync(mint: PublicKey, owner: PublicKey): PublicKey {
+    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+    
+    return getPdaAddress([
+        owner.toBuffer(),
+        TOKEN_PROGRAM_ID.toBuffer(),
+        mint.toBuffer()
+    ], ASSOCIATED_TOKEN_PROGRAM_ID);
+}
+
+/**
+ * 获取关联代币账户地址（异步版本，兼容旧代码）
+ */
 export async function getAssociatedTokenAddress(mint: PublicKey, owner: PublicKey): Promise<PublicKey> {
-    const { getAssociatedTokenAddress } = await import('@solana/spl-token');
-    return getAssociatedTokenAddress(mint, owner);
+    return getAssociatedTokenAddressSync(mint, owner);
 }

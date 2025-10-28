@@ -1,16 +1,15 @@
-import {
-    Connection,
-    PublicKey,
-    SystemProgram
-} from '@solana/web3.js';
+import { PublicKey, SystemProgram, Connection } from '@solana/web3.js';
 import { Program, Wallet, BN } from '@coral-xyz/anchor';
-import {
+import { 
     createConnection,
-    createProgram,
-    CURRENT_NETWORK,
-    NETWORK_CONFIG
-} from '../solana';
-import { Temple } from '../../types/temple';
+    createProgram, 
+    NETWORK_CONFIG, 
+    getCurrentNetwork,
+    getTempleConfigPda,
+    getUserStatePda,
+    getWishPda
+} from '@/lib/solana';
+import { Temple } from '@/types/temple';
 
 // 许愿参数接口
 export interface CreateWishParams {
@@ -49,7 +48,8 @@ export class CreateWishContract {
     constructor(wallet: Wallet) {
         this.program = createProgram(wallet);
         this.connection = createConnection();
-        this.programId = new PublicKey(NETWORK_CONFIG[CURRENT_NETWORK as keyof typeof NETWORK_CONFIG].programId);
+        const network = getCurrentNetwork();
+        this.programId = new PublicKey(NETWORK_CONFIG[network as keyof typeof NETWORK_CONFIG].programId);
     }
 
     /**
@@ -68,10 +68,10 @@ export class CreateWishContract {
                 throw new CreateWishError('内容哈希必须为 32 字节', 'INVALID_CONTENT_HASH');
             }
 
-            // 获取必要的 PDA 地址
-            const templeConfigPda = this.getTempleConfigPda();
-            const userStatePda = this.getUserStatePda(userPubkey);
-            const wishPda = this.getWishPda(userPubkey, params.wishId);
+            // 获取必要的 PDA 地址 - 使用统一的 PDA 函数
+            const templeConfigPda = getTempleConfigPda(this.programId);
+            const userStatePda = getUserStatePda(userPubkey, this.programId);
+            const wishPda = getWishPda(userPubkey, params.wishId, this.programId);
 
             // 检查用户状态是否存在
             let userStateBefore: any;
@@ -223,7 +223,7 @@ export class CreateWishContract {
      */
     async getUserState(userPubkey: PublicKey) {
         try {
-            const userStatePda = this.getUserStatePda(userPubkey);
+            const userStatePda = getUserStatePda(userPubkey, this.programId);
             return await this.program.account.userState.fetch(userStatePda);
         } catch (error: any) {
             throw new CreateWishError(`获取用户状态失败: ${error.message}`, 'FETCH_USER_STATE_FAILED');
@@ -235,49 +235,15 @@ export class CreateWishContract {
      */
     async getWish(userPubkey: PublicKey, wishId: number) {
         try {
-            const wishPda = this.getWishPda(userPubkey, wishId);
+            const wishPda = getWishPda(userPubkey, wishId, this.programId);
             return await this.program.account.wish.fetch(wishPda);
         } catch (error: any) {
             throw new CreateWishError(`获取许愿账户失败: ${error.message}`, 'FETCH_WISH_FAILED');
         }
     }
 
-    // ========== PDA 计算函数 - 基于测试文件 setup.ts ==========
-
-    private getTempleConfigPda(): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("temple_config_v1")],
-            this.programId
-        );
-        return pda;
-    }
-
-    private getUserStatePda(userPubkey: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from("user_state_v1"),
-                userPubkey.toBuffer(),
-            ],
-            this.programId
-        );
-        return pda;
-    }
-
-    private getWishPda(userPubkey: PublicKey, wishId: number): PublicKey {
-        // seeds: [Wish::SEED_PREFIX, user.key(), &wish_id.to_le_bytes()]
-        const wishIdBuffer = Buffer.alloc(8);
-        wishIdBuffer.writeBigUInt64LE(BigInt(wishId));
-        
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from("wish_v1"),
-                userPubkey.toBuffer(),
-                wishIdBuffer,
-            ],
-            this.programId
-        );
-        return pda;
-    }
+    // PDA 函数已迁移到 @/lib/solana.ts
+    // 使用统一的 PDA 计算函数，提高代码复用性和可维护性
 }
 
 /**

@@ -1,3 +1,5 @@
+'use client';
+
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,8 +16,41 @@ import {
   Target,
 } from "lucide-react"
 import { TEMPLE_LEVELS } from "@/lib/constants"
+import { useState, useEffect } from 'react';
+import { getLeaderboards, type LeaderboardData } from '@/lib/api/temple';
 
 export default function TempleDashboardPage() {
+  // 状态管理
+  const [dailyLeaderboard, setDailyLeaderboard] = useState<LeaderboardData | null>(null);
+  const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<LeaderboardData | null>(null);
+  const [monthlyLeaderboard, setMonthlyLeaderboard] = useState<LeaderboardData | null>(null);
+  const [loadingLeaderboards, setLoadingLeaderboards] = useState(true);
+
+  // 获取排行榜数据
+  useEffect(() => {
+    const fetchLeaderboards = async () => {
+      try {
+        const [daily, weekly, monthly] = await Promise.all([
+          getLeaderboards('daily', 10),
+          getLeaderboards('weekly', 10),
+          getLeaderboards('monthly', 10)
+        ]);
+        setDailyLeaderboard(daily);
+        setWeeklyLeaderboard(weekly);
+        setMonthlyLeaderboard(monthly);
+      } catch (error) {
+        console.error('获取排行榜失败:', error);
+      } finally {
+        setLoadingLeaderboards(false);
+      }
+    };
+
+    fetchLeaderboards();
+    // 每2分钟刷新一次
+    const interval = setInterval(fetchLeaderboards, 120000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Mock comprehensive temple data
   const templeData = {
     currentLevel: 2,
@@ -42,30 +77,41 @@ export default function TempleDashboardPage() {
     return Math.min((current / required) * 100, 100)
   }
 
-  // Leaderboard data
-  const dailyLeaders = [
-    { rank: 1, user: "0x1a2b...3c4d", merit: 450, badge: "Supreme", avatar: "🏆" },
-    { rank: 2, user: "0x5e6f...7g8h", merit: 380, badge: "Gold", avatar: "🥈" },
-    { rank: 3, user: "0x9i0j...1k2l", merit: 320, badge: "Gold", avatar: "🥉" },
-    { rank: 4, user: "0x3m4n...5o6p", merit: 280, badge: "Silver", avatar: "⭐" },
-    { rank: 5, user: "0x7q8r...9s0t", merit: 245, badge: "Silver", avatar: "⭐" },
-  ]
+  // 根据功德值计算徽章等级
+  const getBadgeLevel = (karmaPoints: number): string => {
+    if (karmaPoints >= 10000) return "Supreme";
+    if (karmaPoints >= 5000) return "Gold";
+    if (karmaPoints >= 1000) return "Silver";
+    return "Bronze";
+  }
 
-  const weeklyLeaders = [
-    { rank: 1, user: "0x2b3c...4d5e", merit: 2850, badge: "Supreme", avatar: "🏆" },
-    { rank: 2, user: "0x6f7g...8h9i", merit: 2340, badge: "Gold", avatar: "🥈" },
-    { rank: 3, user: "0x0j1k...2l3m", merit: 1980, badge: "Gold", avatar: "🥉" },
-    { rank: 4, user: "0x4n5o...6p7q", merit: 1650, badge: "Silver", avatar: "⭐" },
-    { rank: 5, user: "0x8r9s...0t1u", merit: 1420, badge: "Silver", avatar: "⭐" },
-  ]
+  // 排行榜数据 - 从 API 获取
+  const dailyLeaders = dailyLeaderboard?.list.map((item, index) => ({
+    rank: index + 1,
+    user: item.user_address,
+    merit: item.karma_points,
+    incenseValue: item.incense_value,
+    badge: getBadgeLevel(item.karma_points),
+    avatar: index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "⭐"
+  })) || [];
 
-  const monthlyLeaders = [
-    { rank: 1, user: "0x1a2b...3c4d", merit: 15420, badge: "Supreme", avatar: "🏆" },
-    { rank: 2, user: "0x5e6f...7g8h", merit: 12350, badge: "Gold", avatar: "🥈" },
-    { rank: 3, user: "0x9i0j...1k2l", merit: 9870, badge: "Gold", avatar: "🥉" },
-    { rank: 4, user: "0x3m4n...5o6p", merit: 7650, badge: "Silver", avatar: "⭐" },
-    { rank: 5, user: "0x7q8r...9s0t", merit: 6420, badge: "Silver", avatar: "⭐" },
-  ]
+  const weeklyLeaders = weeklyLeaderboard?.list.map((item, index) => ({
+    rank: index + 1,
+    user: item.user_address,
+    merit: item.karma_points,
+    incenseValue: item.incense_value,
+    badge: getBadgeLevel(item.karma_points),
+    avatar: index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "⭐"
+  })) || [];
+
+  const monthlyLeaders = monthlyLeaderboard?.list.map((item, index) => ({
+    rank: index + 1,
+    user: item.user_address,
+    merit: item.karma_points,
+    incenseValue: item.incense_value,
+    badge: getBadgeLevel(item.karma_points),
+    avatar: index === 0 ? "🏆" : index === 1 ? "🥈" : index === 2 ? "🥉" : "⭐"
+  })) || [];
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -272,21 +318,31 @@ export default function TempleDashboardPage() {
       </div>
 
       {/* Leaderboards */}
-      <Card className="temple-card p-6">
+      <Card className="temple-card p-6" id="leaderboards">
         <div className="flex items-center gap-3 mb-6">
           <Trophy className="w-6 h-6 text-yellow-500" />
           <h2 className="text-2xl font-bold">Community Leaderboards</h2>
         </div>
 
-        <Tabs defaultValue="daily" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="daily">Daily</TabsTrigger>
-            <TabsTrigger value="weekly">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          </TabsList>
+        {loadingLeaderboards ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-sm">加载排行榜中...</p>
+          </div>
+        ) : (
+          <Tabs defaultValue="daily" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="daily">Daily</TabsTrigger>
+              <TabsTrigger value="weekly">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly">Monthly</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="daily" className="space-y-4">
-            {dailyLeaders.map((leader) => (
+            <TabsContent value="daily" className="space-y-4">
+              {dailyLeaders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-sm">暂无排行榜数据</p>
+                </div>
+              ) : (
+                dailyLeaders.map((leader) => (
               <div
                 key={leader.rank}
                 className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border hover:bg-card/80 transition-colors"
@@ -315,11 +371,17 @@ export default function TempleDashboardPage() {
                   <p className="text-xs text-muted-foreground">merit points</p>
                 </div>
               </div>
-            ))}
+                ))
+              )}
           </TabsContent>
 
           <TabsContent value="weekly" className="space-y-4">
-            {weeklyLeaders.map((leader) => (
+            {weeklyLeaders.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">暂无排行榜数据</p>
+              </div>
+            ) : (
+              weeklyLeaders.map((leader) => (
               <div
                 key={leader.rank}
                 className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border hover:bg-card/80 transition-colors"
@@ -348,11 +410,17 @@ export default function TempleDashboardPage() {
                   <p className="text-xs text-muted-foreground">merit points</p>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </TabsContent>
 
           <TabsContent value="monthly" className="space-y-4">
-            {monthlyLeaders.map((leader) => (
+            {monthlyLeaders.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">暂无排行榜数据</p>
+              </div>
+            ) : (
+              monthlyLeaders.map((leader) => (
               <div
                 key={leader.rank}
                 className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border hover:bg-card/80 transition-colors"
@@ -381,9 +449,11 @@ export default function TempleDashboardPage() {
                   <p className="text-xs text-muted-foreground">merit points</p>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        )}
       </Card>
     </div>
   )

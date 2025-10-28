@@ -1,6 +1,17 @@
 import { Program, Wallet, BN } from '@coral-xyz/anchor';
 import { PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { createProgram, NETWORK_CONFIG, getCurrentNetwork } from '@/lib/solana';
+import { 
+    createProgram, 
+    NETWORK_CONFIG, 
+    getCurrentNetwork,
+    getTempleConfigPda,
+    getUserStatePda,
+    getUserIncenseStatePda,
+    getUserDonationStatePda,
+    getBadgeNftMintPda,
+    getAssociatedTokenAddressSync,
+    getMetadataPda
+} from '@/lib/solana';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Temple } from '@/types/temple';
 
@@ -64,94 +75,8 @@ export class DonateFundContract {
         this.programId = new PublicKey(NETWORK_CONFIG[network as keyof typeof NETWORK_CONFIG].programId);
     }
 
-    /**
-     * 获取寺庙配置 PDA
-     */
-    getTempleConfigPda(): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from('temple_config_v1')],
-            this.programId
-        );
-        return pda;
-    }
-
-    /**
-     * 获取用户状态 PDA
-     */
-    getUserStatePda(userPubkey: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from('user_state_v1'), userPubkey.toBuffer()],
-            this.programId
-        );
-        return pda;
-    }
-
-    /**
-     * 获取用户香火状态 PDA
-     */
-    getUserIncenseStatePda(userPubkey: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from('user_incense_state_v1'), userPubkey.toBuffer()],
-            this.programId
-        );
-        return pda;
-    }
-
-    /**
-     * 获取用户捐赠状态 PDA
-     */
-    getUserDonationStatePda(userPubkey: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from('user_donation_state_v1'), userPubkey.toBuffer()],
-            this.programId
-        );
-        return pda;
-    }
-
-    /**
-     * 获取徽章 NFT Mint PDA
-     */
-    getBadgeNftMintPda(templeConfigPda: PublicKey, userPubkey: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from('badge_nft_v1'),
-                templeConfigPda.toBuffer(),
-                userPubkey.toBuffer()
-            ],
-            this.programId
-        );
-        return pda;
-    }
-
-    /**
-     * 获取 NFT 关联代币账户
-     */
-    getAssociatedTokenAddress(mint: PublicKey, owner: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                owner.toBuffer(),
-                TOKEN_PROGRAM_ID.toBuffer(),
-                mint.toBuffer()
-            ],
-            ASSOCIATED_TOKEN_PROGRAM_ID
-        );
-        return pda;
-    }
-
-    /**
-     * 获取 NFT 元数据账户 PDA
-     */
-    getMetadataAccountPda(mint: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from('metadata'),
-                new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID).toBuffer(),
-                mint.toBuffer()
-            ],
-            new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID)
-        );
-        return pda;
-    }
+    // PDA 函数已迁移到 @/lib/solana.ts
+    // 使用统一的 PDA 计算函数，提高代码复用性和可维护性
 
     /**
      * 执行捐赠
@@ -176,14 +101,14 @@ export class DonateFundContract {
                 lamports: amountInLamports
             });
 
-            // 获取必要的 PDA 地址
-            const templeConfigPda = this.getTempleConfigPda();
-            const userStatePda = this.getUserStatePda(userPubkey);
-            const userIncenseStatePda = this.getUserIncenseStatePda(userPubkey);
-            const userDonationStatePda = this.getUserDonationStatePda(userPubkey);
-            const nftMintAccount = this.getBadgeNftMintPda(templeConfigPda, userPubkey);
-            const userNftAssociatedTokenAccount = this.getAssociatedTokenAddress(nftMintAccount, userPubkey);
-            const metaAccount = this.getMetadataAccountPda(nftMintAccount);
+            // 获取必要的 PDA 地址 - 使用统一的 PDA 函数
+            const templeConfigPda = getTempleConfigPda(this.programId);
+            const userStatePda = getUserStatePda(userPubkey, this.programId);
+            const userIncenseStatePda = getUserIncenseStatePda(userPubkey, this.programId);
+            const userDonationStatePda = getUserDonationStatePda(userPubkey, this.programId);
+            const nftMintAccount = getBadgeNftMintPda(userPubkey, this.programId);
+            const userNftAssociatedTokenAccount = getAssociatedTokenAddressSync(nftMintAccount, userPubkey);
+            const metaAccount = getMetadataPda(nftMintAccount);
 
             // 获取寺庙配置以获取 treasury 地址
             const templeConfig: any = await this.program.account.templeConfig.fetch(templeConfigPda);
@@ -309,7 +234,7 @@ export class DonateFundContract {
      * 获取用户状态
      */
     async getUserState(userPubkey: PublicKey): Promise<any> {
-        const userStatePda = this.getUserStatePda(userPubkey);
+        const userStatePda = getUserStatePda(userPubkey, this.programId);
         return await (this.program.account as any).userState.fetch(userStatePda);
     }
 
@@ -317,7 +242,7 @@ export class DonateFundContract {
      * 获取用户捐赠状态
      */
     async getUserDonationState(userPubkey: PublicKey): Promise<any> {
-        const userDonationStatePda = this.getUserDonationStatePda(userPubkey);
+        const userDonationStatePda = getUserDonationStatePda(userPubkey, this.programId);
         return await (this.program.account as any).userDonationState.fetch(userDonationStatePda);
     }
 
@@ -325,7 +250,7 @@ export class DonateFundContract {
      * 获取寺庙配置
      */
     async getTempleConfig(): Promise<any> {
-        const templeConfigPda = this.getTempleConfigPda();
+        const templeConfigPda = getTempleConfigPda(this.programId);
         return await (this.program.account as any).templeConfig.fetch(templeConfigPda);
     }
 }

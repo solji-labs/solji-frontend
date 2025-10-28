@@ -1,16 +1,14 @@
-import {
-    Connection,
-    PublicKey,
-    SystemProgram
-} from '@solana/web3.js';
-import { Program, Wallet } from '@coral-xyz/anchor';
-import {
+import { PublicKey, SystemProgram, Connection } from '@solana/web3.js';
+import { Program, Wallet, BN } from '@coral-xyz/anchor';
+import { 
     createConnection,
-    createProgram,
-    CURRENT_NETWORK,
-    NETWORK_CONFIG
-} from '../solana';
-import { Temple } from '../../types/temple';
+    createProgram, 
+    NETWORK_CONFIG, 
+    getCurrentNetwork,
+    getTempleConfigPda,
+    getUserStatePda
+} from '@/lib/solana';
+import { Temple } from '@/types/temple';
 
 // 抽签参数接口（简化版不需要参数）
 export interface DrawFortuneParams {
@@ -79,7 +77,8 @@ export class DrawFortuneContract {
     constructor(wallet: Wallet) {
         this.program = createProgram(wallet);
         this.connection = createConnection();
-        this.programId = new PublicKey(NETWORK_CONFIG[CURRENT_NETWORK as keyof typeof NETWORK_CONFIG].programId);
+        const network = getCurrentNetwork();
+        this.programId = new PublicKey(NETWORK_CONFIG[network as keyof typeof NETWORK_CONFIG].programId);
     }
 
     /**
@@ -93,9 +92,9 @@ export class DrawFortuneContract {
         try {
             console.log('🔮 开始抽签流程...');
 
-            // 获取必要的 PDA 地址
-            const templeConfigPda = this.getTempleConfigPda();
-            const userStatePda = this.getUserStatePda(userPubkey);
+            // 获取必要的 PDA 地址 - 使用统一的 PDA 函数
+            const templeConfigPda = getTempleConfigPda(this.programId);
+            const userStatePda = getUserStatePda(userPubkey, this.programId);
 
             // 检查用户状态是否存在
             let userStateBefore: any;
@@ -230,7 +229,7 @@ export class DrawFortuneContract {
      */
     async getUserState(userPubkey: PublicKey) {
         try {
-            const userStatePda = this.getUserStatePda(userPubkey);
+            const userStatePda = getUserStatePda(userPubkey, this.programId);
             return await this.program.account.userState.fetch(userStatePda);
         } catch (error: any) {
             throw new DrawFortuneError(`获取用户状态失败: ${error.message}`, 'FETCH_USER_STATE_FAILED');
@@ -242,33 +241,15 @@ export class DrawFortuneContract {
      */
     async getTempleConfig() {
         try {
-            const templeConfigPda = this.getTempleConfigPda();
+            const templeConfigPda = getTempleConfigPda(this.programId);
             return await this.program.account.templeConfig.fetch(templeConfigPda);
         } catch (error: any) {
             throw new DrawFortuneError(`获取寺庙配置失败: ${error.message}`, 'FETCH_TEMPLE_CONFIG_FAILED');
         }
     }
 
-    // ========== PDA 计算函数 - 基于测试文件 setup.ts ==========
-
-    private getTempleConfigPda(): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("temple_config_v1")],
-            this.programId
-        );
-        return pda;
-    }
-
-    private getUserStatePda(userPubkey: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from("user_state_v1"),
-                userPubkey.toBuffer(),
-            ],
-            this.programId
-        );
-        return pda;
-    }
+    // PDA 函数已迁移到 @/lib/solana.ts
+    // 使用统一的 PDA 计算函数，提高代码复用性和可维护性
 }
 
 /**

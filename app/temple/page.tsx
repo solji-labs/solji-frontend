@@ -1,20 +1,96 @@
+'use client';
+
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import { Flame, ScrollText, Heart, TrendingUp, Users, Sparkles, BarChart3, ImageIcon } from "lucide-react"
+import { useState, useEffect } from 'react';
+import { 
+  getRecentActivities, 
+  getTopContributors,
+  getTempleOverview,
+  type RecentActivity,
+  type TopContributor,
+  type TempleOverview
+} from '@/lib/api/temple';
 
 export default function TempleHomePage() {
-  // Mock temple stats - will be replaced with real data
+  // 状态管理
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [topContributors, setTopContributors] = useState<TopContributor[]>([]);
+  const [templeOverview, setTempleOverview] = useState<TempleOverview | null>(null);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [loadingContributors, setLoadingContributors] = useState(true);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+
+  // 获取最近活动
+  useEffect(() => {
+    const fetchRecentActivities = async () => {
+      try {
+        const data = await getRecentActivities(5, 1);
+        setRecentActivities(data.list);
+      } catch (error) {
+        console.error('获取最近活动失败:', error);
+      } finally {
+        setLoadingActivities(false);
+      }
+    };
+
+    fetchRecentActivities();
+    // 每30秒刷新一次
+    const interval = setInterval(fetchRecentActivities, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 获取顶级贡献者
+  useEffect(() => {
+    const fetchTopContributors = async () => {
+      try {
+        const data = await getTopContributors(5, 1);
+        setTopContributors(data.list);
+      } catch (error) {
+        console.error('获取顶级贡献者失败:', error);
+      } finally {
+        setLoadingContributors(false);
+      }
+    };
+
+    fetchTopContributors();
+    // 每60秒刷新一次
+    const interval = setInterval(fetchTopContributors, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 获取寺庙概览
+  useEffect(() => {
+    const fetchTempleOverview = async () => {
+      try {
+        const data = await getTempleOverview();
+        setTempleOverview(data);
+      } catch (error) {
+        console.error('获取寺庙概览失败:', error);
+      } finally {
+        setLoadingOverview(false);
+      }
+    };
+
+    fetchTempleOverview();
+    // 每5分钟刷新一次
+    const interval = setInterval(fetchTempleOverview, 300000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 寺庙统计数据 - 从 API 获取真实数据
   const templeStats = {
     level: 2,
     name: "赤庙",
     nameEn: "Vibrant Shrine",
-    totalBelievers: 10234,
-    totalIncense: 52341,
-    totalFortunes: 25678,
-    totalWishes: 15432,
-    totalDonations: 234.5,
+    totalBelievers: templeOverview?.totalBelievers || 0,
+    totalIncense: templeOverview?.totalIncenseCount || 0,
+    totalFortunes: templeOverview?.totalFortuneCount || 0,
+    totalWishes: templeOverview?.totalWishCount || 0,
+    totalDonations: templeOverview?.totalDonationAmount || 0,
     nextLevel: {
       name: "灵殿",
       nameEn: "Temple of Spirit",
@@ -219,77 +295,85 @@ export default function TempleHomePage() {
       {/* Secondary Sections */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Recent Activities */}
-        <Card className="temple-card p-6">
+        <Card className="temple-card p-6" id="recent-activities">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Recent Activities</h2>
             <TrendingUp className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="space-y-3">
-            {[
-              { user: "0x7a3b...4f2c", action: "burned Supreme Incense", time: "2 min ago" },
-              { user: "0x9d1e...8a6b", action: "drew Great Fortune", time: "5 min ago" },
-              { user: "0x4c2f...1d9e", action: "made a wish", time: "8 min ago" },
-              { user: "0x6b8a...3e7c", action: "donated 1 SOL", time: "12 min ago" },
-              { user: "0x2e5d...9f1a", action: "burned Dragon Incense", time: "15 min ago" },
-            ].map((activity, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm">
-                      <span className="font-medium">{activity.user}</span>{" "}
-                      <span className="text-muted-foreground">{activity.action}</span>
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs text-muted-foreground">{activity.time}</span>
+            {loadingActivities ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">加载中...</p>
               </div>
-            ))}
+            ) : recentActivities.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">暂无活动记录</p>
+              </div>
+            ) : (
+              recentActivities.map((activity, i) => (
+                <div key={i} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm">
+                        <span className="font-medium">{activity.user_address}</span>{" "}
+                        <span className="text-muted-foreground">{activity.instruction_tag}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{activity.since_at}</span>
+                </div>
+              ))
+            )}
           </div>
         </Card>
 
         {/* Top Contributors */}
-        <Card className="temple-card p-6">
+        <Card className="temple-card p-6" id="top-contributors">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Top Contributors</h2>
             <Sparkles className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="space-y-3">
-            {[
-              { rank: 1, user: "0x1a2b...3c4d", merit: 15420, badge: "Supreme" },
-              { rank: 2, user: "0x5e6f...7g8h", merit: 12350, badge: "Gold" },
-              { rank: 3, user: "0x9i0j...1k2l", merit: 9870, badge: "Gold" },
-              { rank: 4, user: "0x3m4n...5o6p", merit: 7650, badge: "Silver" },
-              { rank: 5, user: "0x7q8r...9s0t", merit: 6420, badge: "Silver" },
-            ].map((contributor) => (
+            {loadingContributors ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">加载中...</p>
+              </div>
+            ) : topContributors.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">暂无贡献者</p>
+              </div>
+            ) : (
+              topContributors.map((contributor, index) => (
               <div
-                key={contributor.rank}
+                key={index}
                 className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
               >
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      contributor.rank === 1
+                      index === 0
                         ? "bg-yellow-500/20 text-yellow-500"
-                        : contributor.rank === 2
+                        : index === 1
                           ? "bg-gray-400/20 text-gray-400"
-                          : contributor.rank === 3
+                          : index === 2
                             ? "bg-orange-500/20 text-orange-500"
                             : "bg-primary/10 text-primary"
                     }`}
                   >
-                    {contributor.rank}
+                    {index + 1}
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{contributor.user}</p>
-                    <p className="text-xs text-muted-foreground">{contributor.badge} Badge</p>
+                    <p className="text-sm font-medium">{contributor.user_address}</p>
+                    <p className="text-xs text-muted-foreground">{contributor.incense_value.toLocaleString()} Merit Points</p>
                   </div>
                 </div>
-                <span className="text-sm font-semibold text-primary">{contributor.merit.toLocaleString()}</span>
+                <span className="text-sm font-semibold text-primary">{contributor.karma_points.toLocaleString()}</span>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
       </div>

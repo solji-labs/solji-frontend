@@ -11,11 +11,16 @@ import {
     createConnection,
     createProgram,
     CURRENT_NETWORK,
-    NETWORK_CONFIG
+    NETWORK_CONFIG,
+    getTempleConfigPda,
+    getUserStatePda,
+    getIncenseTypeConfigPda,
+    getIncenseNftMintPda,
+    getAssociatedTokenAddressSync,
+    getMetadataPda
 } from '../solana';
 import { Temple } from '../../types/temple';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 
 // 简化版烧香参数接口
 export interface BurnIncenseSimpliedParams {
@@ -75,16 +80,16 @@ export class BurnIncenseSimpliedContract {
                 throw new BurnIncenseSimpliedError('烧香数量必须在 1-10 之间', 'INVALID_AMOUNT');
             }
 
-            // 获取必要的 PDA 地址 - 基于测试文件的实现
-            const templeConfigPda = this.getTempleConfigPda();
-            const incenseTypeConfigPda = this.getIncenseTypeConfigPda(params.incenseTypeId);
-            const userStatePda = this.getUserStatePda(userPubkey);
-            const incenseNftMintPda = this.getIncenseNftMintPda(params.incenseTypeId);
-            const userNftAssociatedTokenAccount = this.getUserIncenseNftAssociatedTokenAccount(
+            // 获取必要的 PDA 地址 - 使用统一的 PDA 函数
+            const templeConfigPda = getTempleConfigPda(this.programId);
+            const incenseTypeConfigPda = getIncenseTypeConfigPda(params.incenseTypeId, this.programId);
+            const userStatePda = getUserStatePda(userPubkey, this.programId);
+            const incenseNftMintPda = getIncenseNftMintPda(params.incenseTypeId, this.programId);
+            const userNftAssociatedTokenAccount = getAssociatedTokenAddressSync(
                 incenseNftMintPda,
                 userPubkey
             );
-            const metaAccount = this.getNftMetadataPda(incenseNftMintPda);
+            const nftMetadataPda = getMetadataPda(incenseNftMintPda);
 
             // 获取寺庙配置以获取权限账户
             const templeConfig = await this.getTempleConfig();
@@ -203,7 +208,7 @@ export class BurnIncenseSimpliedContract {
      */
     async getUserState(userPubkey: PublicKey) {
         try {
-            const userStatePda = this.getUserStatePda(userPubkey);
+            const userStatePda = getUserStatePda(userPubkey, this.programId);
             return await this.program.account.userState.fetch(userStatePda);
         } catch (error: any) {
             throw new BurnIncenseSimpliedError(`获取用户状态失败: ${error.message}`, 'FETCH_USER_STATE_FAILED');
@@ -215,7 +220,7 @@ export class BurnIncenseSimpliedContract {
      */
     async getTempleConfig() {
         try {
-            const templeConfigPda = this.getTempleConfigPda();
+            const templeConfigPda = getTempleConfigPda(this.programId);
             return await this.program.account.templeConfig.fetch(templeConfigPda);
         } catch (error: any) {
             throw new BurnIncenseSimpliedError(`获取寺庙配置失败: ${error.message}`, 'FETCH_TEMPLE_CONFIG_FAILED');
@@ -227,7 +232,7 @@ export class BurnIncenseSimpliedContract {
      */
     async getIncenseTypeConfig(incenseTypeId: number) {
         try {
-            const incenseTypeConfigPda = this.getIncenseTypeConfigPda(incenseTypeId);
+            const incenseTypeConfigPda = getIncenseTypeConfigPda(incenseTypeId, this.programId);
             return await this.program.account.incenseTypeConfig.fetch(incenseTypeConfigPda);
         } catch (error: any) {
             throw new BurnIncenseSimpliedError(`获取香型配置失败: ${error.message}`, 'FETCH_INCENSE_TYPE_CONFIG_FAILED');
@@ -246,67 +251,6 @@ export class BurnIncenseSimpliedContract {
         }
     }
 
-    // ========== PDA 计算函数 - 基于测试文件 setup.ts ==========
-
-    private getTempleConfigPda(): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("temple_config_v1")],
-            this.programId
-        );
-        return pda;
-    }
-
-    private getUserStatePda(userPubkey: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from("user_state_v1"),
-                userPubkey.toBuffer(),
-            ],
-            this.programId
-        );
-        return pda;
-    }
-
-    private getIncenseTypeConfigPda(incenseTypeId: number): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from("incense_type_v1"), Buffer.from([incenseTypeId])],
-            this.programId
-        );
-        return pda;
-    }
-
-    private getIncenseNftMintPda(incenseTypeId: number): PublicKey {
-        const templeConfigPda = this.getTempleConfigPda();
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from("IncenseNFT"),
-                templeConfigPda.toBuffer(),
-                Buffer.from([incenseTypeId]),
-            ],
-            this.programId
-        );
-        return pda;
-    }
-
-    private getUserIncenseNftAssociatedTokenAccount(incenseNftMintPda: PublicKey, user: PublicKey): PublicKey {
-        return getAssociatedTokenAddressSync(
-            incenseNftMintPda,
-            user,
-            false,
-            TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-        );
-    }
-
-    private getNftMetadataPda(mintPda: PublicKey): PublicKey {
-        const [pda] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from("metadata"),
-                TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-                mintPda.toBuffer(),
-            ],
-            TOKEN_METADATA_PROGRAM_ID
-        );
-        return pda;
-    }
+    // PDA 函数已迁移到 @/lib/solana.ts
+    // 使用统一的 PDA 计算函数，提高代码复用性和可维护性
 }
