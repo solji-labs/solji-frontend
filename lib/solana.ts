@@ -66,7 +66,7 @@ export function getUserIncenseStatePda(userPubkey: PublicKey, programId: PublicK
 // 获取 NFT 铸造账户 PDA
 export function getNftMintPda(templeConfigPda: PublicKey, incenseId: number, programId: PublicKey): PublicKey {
     return getPdaAddress([
-        Buffer.from('IncenseNFT'),
+        Buffer.from('IncenseNFT_V1'),
         templeConfigPda.toBuffer(),
         Buffer.from([incenseId])
     ], programId);
