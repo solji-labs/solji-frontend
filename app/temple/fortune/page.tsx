@@ -74,36 +74,36 @@ export default function FortunePage() {
     try {
       console.log('[solji] 开始抽签...');
 
-      // 构建抽签参数
-      const drawParams = {
-        useMerit: true, // 如果已经抽过，使用功德点, ❗❗❗此处传 hasDrawnToday 执行失败
-        hasFortuneAmulet: false, // 暂时设为false，后续可以从用户状态获取
-        hasProtectionAmulet: false, // 暂时设为false，后续可以从用户状态获取
-      };
-
-      // 执行抽签
-      const drawResult = await drawFortune(drawParams);
+      // 执行抽签（新版本不需要参数）
+      const drawResult = await drawFortune();
 
       console.log('[solji] 抽签成功:', drawResult);
+      console.log('[solji] 运势:', drawResult.fortuneText);
+      console.log('[solji] 描述:', drawResult.fortuneDescription);
+      console.log('[solji] 是否免费:', drawResult.isFreeDraw);
 
       // 将合约返回的运势结果映射到前端显示
+      // FortuneType: GreatLuck, Lucky, Good, Normal, Nobad, Bad, VeryBad
       const fortuneMapping: Record<string, FortuneLevel> = {
-        'Great Luck': '大吉',
-        'Good Luck': '中吉',
-        'Neutral': '小吉',
-        'Bad Luck': '吉',
-        'Great Bad Luck': '末吉'
+        'GreatLuck': '大吉',
+        'Lucky': '吉',
+        'Good': '小吉',
+        'Normal': '吉',
+        'Nobad': '末吉',
+        'Bad': '凶',
+        'VeryBad': '大凶'
       };
 
       const fortuneLevel = fortuneMapping[drawResult.fortune] || '小吉';
       const selectedLevel = FORTUNE_LEVELS.find(level => level.level === fortuneLevel) || FORTUNE_LEVELS[2];
-      const texts = FORTUNE_TEXTS[fortuneLevel];
-      const randomText = texts[Math.floor(Math.random() * texts.length)];
+      
+      // 使用合约返回的运势描述，如果没有则使用默认文本
+      const fortuneText = drawResult.fortuneDescription || FORTUNE_TEXTS[fortuneLevel][0];
 
       const fortune = {
         level: fortuneLevel,
-        text: randomText,
-        meritBonus: drawResult.meritEarned
+        text: fortuneText,
+        meritBonus: drawResult.rewardKarmaPoints
       };
 
       setCurrentFortune(fortune);

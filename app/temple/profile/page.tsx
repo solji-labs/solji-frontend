@@ -3,22 +3,175 @@
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { User, Sparkles, Flame, ScrollText, Heart, Award, TrendingUp } from "lucide-react"
+import { User, Sparkles, Flame, ScrollText, Heart, Award, TrendingUp, Loader2 } from "lucide-react"
 import { MeritBadge } from "@/components/merit-badge"
+import { useWallet } from '@solana/wallet-adapter-react'
+import { useEffect, useState } from 'react'
+import { DrawFortuneContract } from '@/lib/contracts/draw-fortune'
+import { Wallet } from '@coral-xyz/anchor'
+import { Transaction } from '@solana/web3.js'
+
+interface UserStateData {
+  karmaPoints: number;
+  totalIncenseValue: number;
+  totalSolSpent: number;
+  totalDrawCount: number;
+  totalWishCount: number;
+  totalBurnCount: number;
+  donationUnlockedBurns: number;
+  dailyBurnCount: number;
+  dailyDrawCount: number;
+  dailyWishCount: number;
+  createdAt: Date;
+  lastActiveAt: Date;
+}
 
 export default function ProfilePage() {
-  // Mock user data
+  const { publicKey, connected, signTransaction, signAllTransactions } = useWallet();
+  const [userState, setUserState] = useState<UserStateData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 获取用户状态
+  useEffect(() => {
+    async function fetchUserState() {
+      if (!publicKey || !connected || !signTransaction || !signAllTransactions) {
+        setUserState(null);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const walletAdapter = {
+          publicKey,
+          signTransaction: async (tx: Transaction) => {
+            return await signTransaction(tx);
+          },
+          signAllTransactions: async (txs: Transaction[]) => {
+            return await signAllTransactions(txs);
+          },
+        } as Wallet;
+
+        const contract = new DrawFortuneContract(walletAdapter);
+        const state = await contract.getUserState(publicKey);
+
+        console.log('📊 用户状态:', {
+          karmaPoints: state.karmaPoints.toString(),
+          totalIncenseValue: state.totalIncenseValue.toString(),
+          totalSolSpent: state.totalSolSpent.toString(),
+          totalDrawCount: state.totalDrawCount,
+          totalWishCount: state.totalWishCount,
+          totalBurnCount: state.totalBurnCount,
+          donationUnlockedBurns: state.donationUnlockedBurns,
+          dailyBurnCount: state.dailyBurnCount,
+          dailyDrawCount: state.dailyDrawCount,
+          dailyWishCount: state.dailyWishCount,
+          createdAt: new Date(state.createdAt.toNumber() * 1000).toISOString(),
+          lastActiveAt: new Date(state.lastActiveAt.toNumber() * 1000).toISOString(),
+        });
+
+        setUserState({
+          karmaPoints: state.karmaPoints.toNumber(),
+          totalIncenseValue: state.totalIncenseValue.toNumber(),
+          totalSolSpent: state.totalSolSpent.toNumber() / 1e9, // 转换为 SOL
+          totalDrawCount: state.totalDrawCount,
+          totalWishCount: state.totalWishCount,
+          totalBurnCount: state.totalBurnCount,
+          donationUnlockedBurns: state.donationUnlockedBurns,
+          dailyBurnCount: state.dailyBurnCount,
+          dailyDrawCount: state.dailyDrawCount,
+          dailyWishCount: state.dailyWishCount,
+          createdAt: new Date(state.createdAt.toNumber() * 1000),
+          lastActiveAt: new Date(state.lastActiveAt.toNumber() * 1000),
+        });
+      } catch (err: any) {
+        console.error('❌ 获取用户状态失败:', err);
+        setError(err.message || '获取用户状态失败');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchUserState();
+  }, [publicKey, connected, signTransaction, signAllTransactions]);
+
+  // 格式化钱包地址
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  };
+
+  // 根据功德值计算等级
+  const getRank = (karmaPoints: number): string => {
+    if (karmaPoints >= 10000) return '寺主';
+    if (karmaPoints >= 5000) return '供奉';
+    if (karmaPoints >= 2000) return '信徒';
+    if (karmaPoints >= 500) return '香客';
+    return '初心者';
+  };
+
+  // 加载中状态
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <Card className="temple-card p-8 text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">加载用户数据中...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // 未连接钱包
+  if (!connected || !publicKey) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <Card className="temple-card p-8 text-center">
+          <User className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-xl font-semibold mb-2">请连接钱包</h2>
+          <p className="text-muted-foreground">连接钱包后查看您的个人资料</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <Card className="temple-card p-8 text-center">
+          <p className="text-destructive mb-4">❌ {error}</p>
+          <p className="text-sm text-muted-foreground">请确保您已经初始化用户账户（通过烧香或抽签）</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // 没有用户状态
+  if (!userState) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <Card className="temple-card p-8 text-center">
+          <User className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-xl font-semibold mb-2">未找到用户数据</h2>
+          <p className="text-muted-foreground">请先进行烧香或抽签操作来初始化您的账户</p>
+        </Card>
+      </div>
+    );
+  }
+
   const userData = {
-    username: "Believer_7a3b",
-    walletAddress: "0x7a3b...4f2c",
-    meritPoints: 1520,
-    rank: "供奉",
-    joinedDate: "2025-01-01",
+    username: `Believer_${publicKey.toString().slice(0, 4)}`,
+    walletAddress: formatAddress(publicKey.toString()),
+    meritPoints: userState.karmaPoints,
+    rank: getRank(userState.karmaPoints),
+    joinedDate: userState.createdAt.toLocaleDateString('zh-CN'),
     stats: {
-      totalIncenseBurned: 45,
-      totalFortunesDrawn: 23,
-      totalWishesMade: 12,
-      totalDonated: 1.5,
+      totalIncenseBurned: userState.totalBurnCount,
+      totalFortunesDrawn: userState.totalDrawCount,
+      totalWishesMade: userState.totalWishCount,
+      totalDonated: userState.totalSolSpent,
     },
   }
 
@@ -52,6 +205,7 @@ export default function ProfilePage() {
           </div>
           <div className="text-2xl font-bold mb-1">{userData.stats.totalIncenseBurned}</div>
           <div className="text-sm text-muted-foreground">Incense Burned</div>
+          <div className="text-xs text-muted-foreground mt-1">Today: {userState.dailyBurnCount}</div>
         </Card>
 
         <Card className="temple-card p-6 text-center">
@@ -60,6 +214,7 @@ export default function ProfilePage() {
           </div>
           <div className="text-2xl font-bold mb-1">{userData.stats.totalFortunesDrawn}</div>
           <div className="text-sm text-muted-foreground">Fortunes Drawn</div>
+          <div className="text-xs text-muted-foreground mt-1">Today: {userState.dailyDrawCount}</div>
         </Card>
 
         <Card className="temple-card p-6 text-center">
@@ -68,14 +223,16 @@ export default function ProfilePage() {
           </div>
           <div className="text-2xl font-bold mb-1">{userData.stats.totalWishesMade}</div>
           <div className="text-sm text-muted-foreground">Wishes Made</div>
+          <div className="text-xs text-muted-foreground mt-1">Today: {userState.dailyWishCount}</div>
         </Card>
 
         <Card className="temple-card p-6 text-center">
           <div className="w-12 h-12 rounded-lg bg-yellow-500/10 mx-auto mb-3 flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-yellow-500" />
           </div>
-          <div className="text-2xl font-bold mb-1">{userData.stats.totalDonated} SOL</div>
-          <div className="text-sm text-muted-foreground">Total Donated</div>
+          <div className="text-2xl font-bold mb-1">{userData.stats.totalDonated.toFixed(4)} SOL</div>
+          <div className="text-sm text-muted-foreground">Total Spent</div>
+          <div className="text-xs text-muted-foreground mt-1">Incense Value: {userState.totalIncenseValue}</div>
         </Card>
       </div>
 

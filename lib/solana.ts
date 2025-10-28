@@ -1,5 +1,6 @@
-import { Connection, PublicKey, Keypair } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair, clusterApiUrl } from '@solana/web3.js';
 import { AnchorProvider, Program, Wallet, Idl } from '@coral-xyz/anchor';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import templeIdl from './idl/temple.json';
 import { Temple } from '../types/temple';
 
@@ -7,21 +8,51 @@ import { Temple } from '../types/temple';
 export const NETWORK_CONFIG = {
     devnet: {
         rpcUrl: 'https://api.devnet.solana.com',
-        programId: 'D9immZaczS2ASFqqSux2iCCAaFat7vcusB1PQ2SW6d95', // 从 Anchor.toml 获取
+        programId: '81BWs7RGtN2EEvaGWZe8EQ8nhswHTHVzYUn5iPFoRr9o', // 从 Anchor.toml 获取
     },
     mainnet: {
         rpcUrl: 'https://api.mainnet-beta.solana.com',
-        programId: 'D9immZaczS2ASFqqSux2iCCAaFat7vcusB1PQ2SW6d95',
+        programId: '81BWs7RGtN2EEvaGWZe8EQ8nhswHTHVzYUn5iPFoRr9o',
+    },
+    'mainnet-beta': {
+        rpcUrl: 'https://api.mainnet-beta.solana.com',
+        programId: '81BWs7RGtN2EEvaGWZe8EQ8nhswHTHVzYUn5iPFoRr9o',
     },
 };
 
-// 当前使用的网络
-export const CURRENT_NETWORK = 'devnet';
+// 获取当前网络 - 与 wallet-provider.tsx 保持一致
+export function getCurrentNetwork(): string {
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+    return network.toLowerCase();
+}
+
+// 当前使用的网络（动态获取）
+export const CURRENT_NETWORK = getCurrentNetwork();
+
+// 获取 RPC URL - 与 wallet-provider.tsx 保持一致
+export function getRpcUrl(): string {
+    // 优先使用环境变量中的自定义 RPC URL
+    const customRpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+    if (customRpcUrl) {
+        return customRpcUrl;
+    }
+    
+    // 否则使用配置中的 RPC URL
+    const network = getCurrentNetwork();
+    const config = NETWORK_CONFIG[network as keyof typeof NETWORK_CONFIG];
+    if (config) {
+        return config.rpcUrl;
+    }
+    
+    // 最后使用 clusterApiUrl 作为后备
+    return clusterApiUrl(network as WalletAdapterNetwork);
+}
 
 // 创建连接
 export function createConnection(): Connection {
-    const config = NETWORK_CONFIG[CURRENT_NETWORK as keyof typeof NETWORK_CONFIG];
-    return new Connection(config.rpcUrl, 'confirmed');
+    const rpcUrl = getRpcUrl();
+    console.log('[Solana] Creating connection to:', rpcUrl, '(network:', CURRENT_NETWORK, ')');
+    return new Connection(rpcUrl, 'confirmed');
 }
 
 // 创建程序实例
@@ -45,22 +76,22 @@ export function getPdaAddress(seeds: (Buffer | Uint8Array)[], programId: PublicK
 
 // 获取寺庙配置 PDA
 export function getTempleConfigPda(programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('temple_v1')], programId);
+    return getPdaAddress([Buffer.from('temple_config_v1')], programId);
 }
 
 // 获取全局统计 PDA
 export function getGlobalStatsPda(programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('global_stats_v1')], programId);
+    return getPdaAddress([Buffer.from('temple_config_v1')], programId);
 }
 
 // 获取用户状态 PDA
 export function getUserStatePda(userPubkey: PublicKey, programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('user_state'), userPubkey.toBuffer()], programId);
+    return getPdaAddress([Buffer.from('user_state_v1'), userPubkey.toBuffer()], programId);
 }
 
 // 获取用户香火状态 PDA
 export function getUserIncenseStatePda(userPubkey: PublicKey, programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('user_incense'), userPubkey.toBuffer()], programId);
+    return getPdaAddress([Buffer.from('user_incense_state_v1'), userPubkey.toBuffer()], programId);
 }
 
 // 获取 NFT 铸造账户 PDA

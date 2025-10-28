@@ -12,8 +12,9 @@ import type { IncenseType } from '@/lib/types';
 import { CheckCircle2, Flame, Sparkles, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { useBurnIncense } from '@/hooks/use-burn-incense';
+import { useBurnIncenseSimplied } from '@/hooks/use-burn-incense-simplied';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 interface BurnIncenseDialogProps {
   open: boolean;
@@ -30,7 +31,7 @@ export function BurnIncenseDialog({
 }: BurnIncenseDialogProps) {
   const [burned, setBurned] = useState(false);
   const { connected } = useWallet();
-  const { loading, error, result, burnIncense, resetState } = useBurnIncense();
+  const { loading, error, result, burnIncenseSimplied, resetState } = useBurnIncenseSimplied();
 
   // 重置状态当对话框关闭时
   useEffect(() => {
@@ -47,7 +48,7 @@ export function BurnIncenseDialog({
     }
 
     try {
-      console.log('[solji] Burning incense:', incense.name);
+      console.log('[solji] Burning incense (simplified):', incense.name);
 
       // 将前端香类型映射到合约香类型ID
       const incenseIdMap: Record<string, number> = {
@@ -57,16 +58,24 @@ export function BurnIncenseDialog({
         'supreme': 4,
       };
 
-      const incenseId = incenseIdMap[incense.id] || 1;
+      const incenseTypeId = incenseIdMap[incense.id] || 1;
       const amount = 1; // 每次烧一根香
+      
+      // 计算支付金额 (SOL 转换为 lamports)
+      const paymentAmount = Math.floor(incense.price * LAMPORTS_PER_SOL);
 
-      const burnResult = await burnIncense({
-        incenseId,
+      const burnResult = await burnIncenseSimplied({
+        incenseTypeId,
         amount,
-        hasMeritAmulet: true, // 暂时设为true，后续可以从用户状态获取
+        paymentAmount,
       });
 
       console.log('[solji] Incense burned successfully:', burnResult);
+      console.log('[solji] Rewards:', {
+        karmaPoints: burnResult.rewardKarmaPoints,
+        incenseValue: burnResult.rewardIncenseValue,
+      });
+      
       setBurned(true);
 
       if (onBurnSuccess) {
@@ -188,9 +197,15 @@ export function BurnIncenseDialog({
               <p className='text-sm text-muted-foreground'>
                 You earned{' '}
                 <span className='font-semibold text-primary'>
-                  +{result?.meritPointsEarned || incense.meritPoints} merit points
-                </span>{' '}
-                and minted an Incense NFT
+                  +{result?.rewardKarmaPoints || incense.meritPoints} karma points
+                </span>
+                {' '}and{' '}
+                <span className='font-semibold text-primary'>
+                  +{result?.rewardIncenseValue || 0} incense value
+                </span>
+              </p>
+              <p className='text-xs text-muted-foreground mt-2'>
+                Minted {result?.amount || 1} Incense NFT
               </p>
               {result?.transactionSignature && (
                 <p className='text-xs text-muted-foreground mt-2'>

@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { LanguageSwitcher } from './language-switcher';
 import { MeritBadge } from './merit-badge';
 import { MobileNav } from './mobile-nav';
+import { NetworkIndicator } from './network-indicator';
 import { ThemeToggle } from './theme-toggle';
 import { WalletButton } from './wallet-button';
 
@@ -90,6 +91,7 @@ export function TempleHeader() {
             rank={rank}
             className='hidden lg:flex'
           />
+          <NetworkIndicator />
           <ThemeToggle />
           <LanguageSwitcher />
           <WalletButton />
