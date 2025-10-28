@@ -437,7 +437,7 @@ export class BurnIncenseContract {
     private getNftMintPda(templeConfigPda: PublicKey, incenseId: number): PublicKey {
         const [pda] = PublicKey.findProgramAddressSync(
             [
-                Buffer.from("IncenseNFT"),
+                Buffer.from("IncenseNFT_V1"),
                 templeConfigPda.toBuffer(),
                 Buffer.from([incenseId])
             ],
@@ -621,7 +621,7 @@ export class BurnIncenseContract {
             // 计算NFT铸造账户PDA - 照搬setup.ts中的计算方式
             const [nftMintPda] = PublicKey.findProgramAddressSync(
                 [
-                    Buffer.from("IncenseNFT"),
+                    Buffer.from("IncenseNFT_V1"),
                     templeConfigPda.toBuffer(),
                     Buffer.from([incenseId])
                 ],

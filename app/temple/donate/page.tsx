@@ -17,6 +17,8 @@ import {
   Zap
 } from 'lucide-react';
 import { useState } from 'react';
+import { useDonateFund } from '@/hooks/use-donate-fund';
+import { useWalletInfo } from '@/hooks/use-wallet';
 
 const TIER_ICONS = {
   bronze: Award,
@@ -44,26 +46,26 @@ export default function DonatePage() {
   const [customAmount, setCustomAmount] = useState('');
   const [donating, setDonating] = useState(false);
   const [donated, setDonated] = useState(false);
+  const { donate } = useDonateFund();
+  const { connected } = useWalletInfo();
 
   const handleDonate = async () => {
-    setDonating(true);
-    console.log('[solji] Processing donation:', {
-      tier: selectedTier,
-      amount: customAmount
-    });
-
-    // Simulate donation transaction
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-
-    console.log('[solji] Donation successful, badge NFT minted');
-    setDonating(false);
-    setDonated(true);
-
-    setTimeout(() => {
-      setDonated(false);
-      setSelectedTier(null);
-      setCustomAmount('');
-    }, 3000);
+    try {
+      if (!connected || !selectedTier) return;
+      setDonating(true);
+      const amountSol = Number.parseFloat(customAmount || `${DONATION_TIERS[selectedTier].minAmount}`);
+      await donate(amountSol);
+      setDonated(true);
+      setTimeout(() => {
+        setDonated(false);
+        setSelectedTier(null);
+        setCustomAmount('');
+      }, 3000);
+    } catch (e) {
+      console.error('[solji] Donate failed:', e);
+    } finally {
+      setDonating(false);
+    }
   };
 
   return (
@@ -110,9 +112,8 @@ export default function DonatePage() {
           return (
             <Card
               key={tier}
-              className={`temple-card p-6 cursor-pointer transition-all ${
-                isSelected ? 'ring-2 ring-primary scale-105' : ''
-              }`}
+              className={`temple-card p-6 cursor-pointer transition-all ${isSelected ? 'ring-2 ring-primary scale-105' : ''
+                }`}
               onClick={() => setSelectedTier(tier)}>
               <div className='space-y-4'>
                 {/* Tier Icon & Name */}
@@ -241,7 +242,7 @@ export default function DonatePage() {
                   donating ||
                   !customAmount ||
                   Number.parseFloat(customAmount) <
-                    DONATION_TIERS[selectedTier].minAmount
+                  DONATION_TIERS[selectedTier].minAmount
                 }>
                 {donating ? (
                   <>
@@ -333,13 +334,11 @@ export default function DonatePage() {
               <Card key={i} className='temple-card p-4'>
                 <div className='flex items-center gap-3'>
                   <div
-                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
-                      TIER_COLORS[donation.tier as DonationTier]
-                    } flex items-center justify-center flex-shrink-0`}>
+                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${TIER_COLORS[donation.tier as DonationTier]
+                      } flex items-center justify-center flex-shrink-0`}>
                     <Icon
-                      className={`w-5 h-5 ${
-                        TIER_TEXT_COLORS[donation.tier as DonationTier]
-                      }`}
+                      className={`w-5 h-5 ${TIER_TEXT_COLORS[donation.tier as DonationTier]
+                        }`}
                     />
                   </div>
                   <div className='flex-1 min-w-0'>
