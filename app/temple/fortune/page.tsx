@@ -9,6 +9,8 @@ import { Info, RefreshCw, ScrollText, Share2, Sparkles, AlertCircle } from 'luci
 import { useState, useEffect } from 'react';
 import { useDrawFortune } from '@/hooks/use-draw-fortune';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { getFortuneHistory } from '@/lib/api';
+import type { FortuneHistoryItem } from '@/lib/api/types';
 
 const FORTUNE_TEXTS: Record<FortuneLevel, string[]> = {
   大吉: [
@@ -56,14 +58,38 @@ export default function FortunePage() {
     text: string;
     meritBonus: number;
   } | null>(null);
+  const [fortuneHistory, setFortuneHistory] = useState<FortuneHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
   const { loading, error, result, drawFortune, resetState } = useDrawFortune();
 
   // 重置状态当页面加载时
   useEffect(() => {
     resetState();
   }, [resetState]);
+
+  // 加载抽签历史记录
+  const loadFortuneHistory = async () => {
+    if (!publicKey) return;
+
+    setHistoryLoading(true);
+    try {
+      const history = await getFortuneHistory(publicKey.toString(), 3);
+      setFortuneHistory(history.history);
+    } catch (error) {
+      console.error('Failed to load fortune history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // 当钱包连接时加载历史记录
+  useEffect(() => {
+    if (connected && publicKey) {
+      loadFortuneHistory();
+    }
+  }, [connected, publicKey]);
 
   const handleDrawFortune = async () => {
     if (!connected) {
@@ -109,6 +135,9 @@ export default function FortunePage() {
       setCurrentFortune(fortune);
       setHasDrawnToday(true);
 
+      // 抽签成功后刷新历史记录
+      await loadFortuneHistory();
+
     } catch (error: any) {
       console.error('[solji] 抽签失败:', error);
       // 错误已经在 hook 中处理，这里不需要额外处理
@@ -137,6 +166,28 @@ export default function FortunePage() {
     if (level.includes('末吉')) return 'from-yellow-500/20 to-amber-500/20';
     if (level === '凶') return 'from-orange-500/20 to-red-500/20';
     return 'from-red-500/20 to-rose-500/20';
+  };
+
+  // 将API返回的fortune_text映射到中文FortuneLevel
+  const mapFortuneTextToLevel = (fortuneText: string): FortuneLevel => {
+    const mapping: Record<string, FortuneLevel> = {
+      'Great Luck': '大吉',
+      'Good Luck': '中吉',
+      'Neutral': '小吉',
+      'Bad Luck': '吉',
+      'Great Bad Luck': '末吉'
+    };
+    return mapping[fortuneText] || '小吉';
+  };
+
+  // 格式化日期
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
   };
 
   return (
@@ -315,40 +366,52 @@ export default function FortunePage() {
       {/* Fortune History */}
       <div className='mt-12'>
         <h2 className='text-2xl font-bold mb-6'>Recent Fortunes</h2>
-        <div className='space-y-3'>
-          {[
-            { level: '中吉', date: '2025-01-05', shared: true },
-            { level: '吉', date: '2025-01-04', shared: false },
-            { level: '小吉', date: '2025-01-03', shared: true }
-          ].map((fortune, i) => (
-            <Card key={i} className='temple-card p-4'>
-              <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-3'>
-                  <div className='w-10 h-10 rounded-lg bg-muted flex items-center justify-center'>
-                    <ScrollText className='w-5 h-5 text-muted-foreground' />
+        {historyLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+            <span>Loading history...</span>
+          </div>
+        ) : fortuneHistory.length > 0 ? (
+          <div className='space-y-3'>
+            {fortuneHistory.map((fortune) => (
+              <Card key={fortune.id} className='temple-card p-4'>
+                <div className='flex items-center justify-between'>
+                  <div className='flex items-center gap-3'>
+                    <div className='w-10 h-10 rounded-lg bg-muted flex items-center justify-center'>
+                      <ScrollText className='w-5 h-5 text-muted-foreground' />
+                    </div>
+                    <div>
+                      <p
+                        className={`font-semibold ${getFortuneColor(
+                          mapFortuneTextToLevel(fortune.fortune_text)
+                        )}`}>
+                        {mapFortuneTextToLevel(fortune.fortune_text)}
+                      </p>
+                      <p className='text-xs text-muted-foreground'>
+                        {formatDate(fortune.created_at)}
+                      </p>
+                      {/* <p className='text-xs text-muted-foreground'>
+                        {fortune.is_free ? 'Free' : `${fortune.merit_cost} Merit`}
+                      </p> */}
+                    </div>
                   </div>
-                  <div>
-                    <p
-                      className={`font-semibold ${getFortuneColor(
-                        fortune.level as FortuneLevel
-                      )}`}>
-                      {fortune.level}
-                    </p>
-                    <p className='text-xs text-muted-foreground'>
-                      {fortune.date}
-                    </p>
-                  </div>
+                  {fortune.transaction_signature && (
+                    <Badge variant='secondary' className='text-xs'>
+                      <Share2 className='w-3 h-3 mr-1' />
+                      Shared
+                    </Badge>
+                  )}
                 </div>
-                {fortune.shared && (
-                  <Badge variant='secondary' className='text-xs'>
-                    <Share2 className='w-3 h-3 mr-1' />
-                    Shared
-                  </Badge>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <ScrollText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>No fortune history yet</p>
+            <p className="text-sm">Draw your first fortune to see it here!</p>
+          </div>
+        )}
       </div>
     </div>
   );

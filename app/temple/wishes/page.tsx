@@ -6,20 +6,45 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Globe, Heart, Info, Lock, Share2, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { Globe, Heart, Info, Lock, Share2, Sparkles, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useCreateWish } from '@/hooks/use-create-wish';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
+import { getWishes } from '@/lib/api';
+import type { WishItem } from '@/lib/api/types';
 
 export default function WishesPage() {
   const [wishText, setWishText] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [wishesCount, setWishesCount] = useState(1);
+  const [wishes, setWishes] = useState<WishItem[]>([]);
+  const [wishesLoading, setWishesLoading] = useState(false);
+  const [totalWishesCount, setTotalWishesCount] = useState(0);
   const maxFreeWishes = 3;
 
   const { wallet, connected } = useWallet();
   const { createWish, isLoading, error, clearError } = useCreateWish();
+
+  // 加载许愿墙数据
+  const loadWishes = async () => {
+    setWishesLoading(true);
+    try {
+      const response = await getWishes();
+      setWishes(response.wishes);
+      setTotalWishesCount(response.pagination.count);
+    } catch (error) {
+      console.error('Failed to load wishes:', error);
+      toast.error('加载许愿墙失败');
+    } finally {
+      setWishesLoading(false);
+    }
+  };
+
+  // 页面加载时获取许愿数据
+  useEffect(() => {
+    loadWishes();
+  }, []);
 
   const handleSubmitWish = async () => {
     if (!wishText.trim()) return;
@@ -52,10 +77,34 @@ export default function WishesPage() {
       setWishesCount(wishesCount + 1);
       setWishText('');
 
+      // 许愿成功后刷新许愿墙
+      await loadWishes();
+
     } catch (err: any) {
       console.error('[solji] Wish submission failed:', err);
       toast.error(err.message || '许愿失败');
     }
+  };
+
+  // 格式化时间显示
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+
+    if (diffInMinutes < 1) return '刚刚';
+    if (diffInMinutes < 60) return `${diffInMinutes} 分钟前`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} 小时前`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} 天前`;
+  };
+
+  // 缩短用户公钥显示
+  const shortKey = (pubkey: string) => {
+    return pubkey ? `${pubkey.slice(0, 4)}...${pubkey.slice(-4)}` : '';
   };
 
   const remainingFreeWishes = Math.max(0, maxFreeWishes - wishesCount);
@@ -227,82 +276,67 @@ export default function WishesPage() {
           <Card className='temple-card p-6'>
             <div className='flex items-center justify-between mb-4'>
               <h2 className='text-xl font-semibold'>Public Wishes</h2>
-              <Badge variant='secondary'>
-                <Globe className='w-3 h-3 mr-1' />
-                15,432 wishes
-              </Badge>
+              <div className='flex items-center gap-2'>
+                <Badge variant='secondary'>
+                  <Globe className='w-3 h-3 mr-1' />
+                  {totalWishesCount.toLocaleString()} wishes
+                </Badge>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={loadWishes}
+                  disabled={wishesLoading}
+                >
+                  <RefreshCw className={`w-3 h-3 mr-1 ${wishesLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
             </div>
 
-            <div className='space-y-3 max-h-[600px] overflow-y-auto'>
-              {[
-                {
-                  user: '0x7a3b...4f2c',
-                  wish: 'May my family be healthy and happy always',
-                  time: '2 min ago',
-                  shared: true
-                },
-                {
-                  user: '0x9d1e...8a6b',
-                  wish: 'Wishing for success in my new business venture',
-                  time: '5 min ago',
-                  shared: false
-                },
-                {
-                  user: '0x4c2f...1d9e',
-                  wish: 'May I find true love this year',
-                  time: '8 min ago',
-                  shared: true
-                },
-                {
-                  user: '0x6b8a...3e7c',
-                  wish: 'Hoping for world peace and harmony',
-                  time: '12 min ago',
-                  shared: true
-                },
-                {
-                  user: '0x2e5d...9f1a',
-                  wish: 'May my crypto portfolio moon to the stars',
-                  time: '15 min ago',
-                  shared: false
-                },
-                {
-                  user: '0x8f3c...6d2b',
-                  wish: 'Wishing for good health for my parents',
-                  time: '18 min ago',
-                  shared: true
-                }
-              ].map((wish, i) => (
-                <Card
-                  key={i}
-                  className='p-4 bg-muted/30 hover:bg-muted/50 transition-colors'>
-                  <div className='space-y-2'>
-                    <div className='flex items-center justify-between'>
-                      <span className='text-xs font-medium text-muted-foreground'>
-                        {wish.user}
-                      </span>
-                      <span className='text-xs text-muted-foreground'>
-                        {wish.time}
-                      </span>
-                    </div>
-                    <p className='text-sm leading-relaxed'>{wish.wish}</p>
-                    <div className='flex items-center justify-between pt-2'>
-                      <div className='flex items-center gap-2'>
-                        <Heart className='w-4 h-4 text-pink-500' />
+            {wishesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                <span>Loading wishes...</span>
+              </div>
+            ) : wishes.length > 0 ? (
+              <div className='space-y-3 max-h-[600px] overflow-y-auto'>
+                {wishes.map((wish) => (
+                  <Card
+                    key={wish.id}
+                    className='p-4 bg-muted/30 hover:bg-muted/50 transition-colors'>
+                    <div className='space-y-2'>
+                      <div className='flex items-center justify-between'>
+                        <span className='text-xs font-medium text-muted-foreground'>
+                          {shortKey(wish.user_pubkey)}
+                        </span>
                         <span className='text-xs text-muted-foreground'>
-                          {Math.floor(Math.random() * 50) + 5} likes
+                          {formatTimeAgo(wish.created_at)}
                         </span>
                       </div>
-                      {wish.shared && (
+                      <p className='text-sm leading-relaxed truncate'>{wish.content}</p>
+                      <div className='flex items-center justify-between pt-2'>
+                        <div className='flex items-center gap-2'>
+                          <Heart className='w-4 h-4 text-pink-500' />
+                          <span className='text-xs text-muted-foreground'>
+                            {wish.likes} likes
+                          </span>
+                        </div>
                         <Badge variant='secondary' className='text-xs'>
                           <Share2 className='w-3 h-3 mr-1' />
                           Shared
                         </Badge>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Heart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No wishes yet</p>
+                <p className="text-sm">Be the first to make a wish!</p>
+              </div>
+            )}
           </Card>
         </div>
       </div>
