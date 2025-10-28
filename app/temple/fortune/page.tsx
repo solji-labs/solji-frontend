@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FORTUNE_LEVELS } from '@/lib/constants';
 import type { FortuneLevel } from '@/lib/types';
-import { Info, RefreshCw, ScrollText, Share2, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { Info, RefreshCw, ScrollText, Share2, Sparkles, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useDrawFortune } from '@/hooks/use-draw-fortune';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 const FORTUNE_TEXTS: Record<FortuneLevel, string[]> = {
   大吉: [
@@ -55,39 +57,62 @@ export default function FortunePage() {
     meritBonus: number;
   } | null>(null);
 
-  const drawFortune = async () => {
-    setDrawing(true);
-    console.log('[solji] Drawing fortune...');
+  const { connected } = useWallet();
+  const { loading, error, result, drawFortune, resetState } = useDrawFortune();
 
-    // Simulate drawing animation
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+  // 重置状态当页面加载时
+  useEffect(() => {
+    resetState();
+  }, [resetState]);
 
-    // Random fortune based on probabilities
-    const random = Math.random();
-    let cumulative = 0;
-    let selectedLevel = FORTUNE_LEVELS[0];
-
-    for (const level of FORTUNE_LEVELS) {
-      cumulative += level.probability;
-      if (random <= cumulative) {
-        selectedLevel = level;
-        break;
-      }
+  const handleDrawFortune = async () => {
+    if (!connected) {
+      alert('请先连接钱包');
+      return;
     }
 
-    const texts = FORTUNE_TEXTS[selectedLevel.level as FortuneLevel];
-    const randomText = texts[Math.floor(Math.random() * texts.length)];
+    try {
+      console.log('[solji] 开始抽签...');
 
-    const fortune = {
-      level: selectedLevel.level as FortuneLevel,
-      text: randomText,
-      meritBonus: selectedLevel.meritBonus
-    };
+      // 构建抽签参数
+      const drawParams = {
+        useMerit: true, // 如果已经抽过，使用功德点, ❗❗❗此处传 hasDrawnToday 执行失败
+        hasFortuneAmulet: false, // 暂时设为false，后续可以从用户状态获取
+        hasProtectionAmulet: false, // 暂时设为false，后续可以从用户状态获取
+      };
 
-    console.log('[solji] Fortune drawn:', fortune);
-    setCurrentFortune(fortune);
-    setHasDrawnToday(true);
-    setDrawing(false);
+      // 执行抽签
+      const drawResult = await drawFortune(drawParams);
+
+      console.log('[solji] 抽签成功:', drawResult);
+
+      // 将合约返回的运势结果映射到前端显示
+      const fortuneMapping: Record<string, FortuneLevel> = {
+        'Great Luck': '大吉',
+        'Good Luck': '中吉',
+        'Neutral': '小吉',
+        'Bad Luck': '吉',
+        'Great Bad Luck': '末吉'
+      };
+
+      const fortuneLevel = fortuneMapping[drawResult.fortune] || '小吉';
+      const selectedLevel = FORTUNE_LEVELS.find(level => level.level === fortuneLevel) || FORTUNE_LEVELS[2];
+      const texts = FORTUNE_TEXTS[fortuneLevel];
+      const randomText = texts[Math.floor(Math.random() * texts.length)];
+
+      const fortune = {
+        level: fortuneLevel,
+        text: randomText,
+        meritBonus: drawResult.meritEarned
+      };
+
+      setCurrentFortune(fortune);
+      setHasDrawnToday(true);
+
+    } catch (error: any) {
+      console.error('[solji] 抽签失败:', error);
+      // 错误已经在 hook 中处理，这里不需要额外处理
+    }
   };
 
   const shareFortune = () => {
@@ -162,12 +187,20 @@ export default function FortunePage() {
               </p>
             </div>
 
+            {/* Error Display */}
+            {error && (
+              <div className='flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700'>
+                <AlertCircle className='w-4 h-4' />
+                <span className='text-sm'>{error}</span>
+              </div>
+            )}
+
             <Button
               size='lg'
-              onClick={drawFortune}
-              disabled={drawing}
+              onClick={handleDrawFortune}
+              disabled={loading || !connected}
               className='px-8'>
-              {drawing ? (
+              {loading ? (
                 <>
                   <RefreshCw className='w-5 h-5 mr-2 animate-spin' />
                   Drawing Fortune...
@@ -265,11 +298,12 @@ export default function FortunePage() {
                 Share (+1 Merit)
               </Button>
               <Button
-                onClick={() => {
+                onClick={async () => {
                   setCurrentFortune(null);
-                  drawFortune();
+                  await handleDrawFortune();
                 }}
-                className='flex-1'>
+                className='flex-1'
+                disabled={loading}>
                 <RefreshCw className='w-4 h-4 mr-2' />
                 Draw Again (5 Merit)
               </Button>

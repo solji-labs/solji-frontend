@@ -1,58 +1,89 @@
 'use client';
 
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletActions, useWalletInfo } from '@/hooks/use-wallet';
 import { Button } from '@/components/ui/button';
-import { Wallet } from 'lucide-react';
+import { Wallet, LogOut, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 
 export function WalletButton() {
-  const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState<string>('');
+    const { connected, publicKey } = useWallet();
+    const { connect, disconnect } = useWalletActions();
+    const { balance, loading } = useWalletInfo();
+    const { setVisible } = useWalletModal();
+    const [copied, setCopied] = useState(false);
 
-  const connectWallet = async () => {
-    try {
-      // Check if Phantom wallet is installed
-      if ('solana' in window) {
-        const provider = (window as any).solana;
-        if (provider.isPhantom) {
-          const response = await provider.connect();
-          setAddress(response.publicKey.toString());
-          setConnected(true);
-          console.log(
-            '[solji] Connected to wallet:',
-            response.publicKey.toString()
-          );
+    const handleConnect = async () => {
+        try {
+            setVisible(true);
+        } catch (error) {
+            console.error('打开钱包选择失败:', error);
         }
-      } else {
-        // Fallback for demo purposes
-        const demoAddress = 'Demo' + Math.random().toString(36).substring(2, 8);
-        setAddress(demoAddress);
-        setConnected(true);
-        console.log('[solji] Demo wallet connected:', demoAddress);
-      }
-    } catch (error) {
-      console.error('[solji] Error connecting wallet:', error);
+    };
+
+    const handleDisconnect = async () => {
+        try {
+            await disconnect();
+        } catch (error) {
+            console.error('断开连接失败:', error);
+        }
+    };
+
+    const handleCopyAddress = async () => {
+        if (publicKey) {
+            try {
+                await navigator.clipboard.writeText(publicKey.toString());
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (error) {
+                console.error('复制地址失败:', error);
+            }
+        }
+    };
+
+    if (!connected) {
+        return (
+            <Button onClick={handleConnect} className="flex items-center gap-2">
+                <Wallet className="w-4 h-4" />
+                Connect Wallet
+            </Button>
+        );
     }
-  };
 
-  const disconnectWallet = () => {
-    setConnected(false);
-    setAddress('');
-    console.log('[solji] Wallet disconnected');
-  };
-
-  if (connected) {
     return (
-      <Button variant='outline' onClick={disconnectWallet}>
-        <Wallet className='w-4 h-4 mr-2' />
-        {address.slice(0, 4)}...{address.slice(-4)}
-      </Button>
-    );
-  }
+        <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium">
+                    {publicKey?.toString().slice(0, 4)}...{publicKey?.toString().slice(-4)}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                    {loading ? '...' : `${balance.toFixed(4)} SOL`}
+                </span>
+            </div>
 
-  return (
-    <Button onClick={connectWallet}>
-      <Wallet className='w-4 h-4 mr-2' />
-      Connect Wallet
-    </Button>
-  );
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyAddress}
+                className="flex items-center gap-1"
+            >
+                {copied ? (
+                    <Check className="w-3 h-3" />
+                ) : (
+                    <Copy className="w-3 h-3" />
+                )}
+            </Button>
+
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDisconnect}
+                className="flex items-center gap-1"
+            >
+                <LogOut className="w-3 h-3" />
+            </Button>
+        </div>
+    );
 }

@@ -8,27 +8,54 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Globe, Heart, Info, Lock, Share2, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { useCreateWish } from '@/hooks/use-create-wish';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { toast } from 'sonner';
 
 export default function WishesPage() {
   const [wishText, setWishText] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [wishesCount, setWishesCount] = useState(1);
   const maxFreeWishes = 3;
 
+  const { wallet, connected } = useWallet();
+  const { createWish, isLoading, error, clearError } = useCreateWish();
+
   const handleSubmitWish = async () => {
     if (!wishText.trim()) return;
+    if (!connected) {
+      toast.error('请先连接钱包');
+      return;
+    }
 
-    setSubmitting(true);
-    console.log('[solji] Submitting wish:', { text: wishText, isPublic });
+    try {
+      console.log('[solji] Submitting wish:', { text: wishText, isPublic });
 
-    // Simulate wish submission and NFT minting
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      // 生成内容哈希 (简化版本，实际应该上传到IPFS)
+      const contentHash = Array.from({ length: 32 }, (_, i) =>
+        wishText.charCodeAt(i % wishText.length) % 256
+      );
 
-    console.log('[solji] Wish submitted and NFT minted successfully');
-    setWishesCount(wishesCount + 1);
-    setWishText('');
-    setSubmitting(false);
+      const result = await createWish({
+        contentHash,
+        isAnonymous: !isPublic
+      });
+
+      console.log('[solji] Wish submitted successfully:', result);
+
+      toast.success(`许愿成功！获得 ${result.wishId} 号许愿NFT`);
+
+      if (result.amuletDropped) {
+        toast.success('恭喜！获得了护符！');
+      }
+
+      setWishesCount(wishesCount + 1);
+      setWishText('');
+
+    } catch (err: any) {
+      console.error('[solji] Wish submission failed:', err);
+      toast.error(err.message || '许愿失败');
+    }
   };
 
   const remainingFreeWishes = Math.max(0, maxFreeWishes - wishesCount);
@@ -145,13 +172,18 @@ export default function WishesPage() {
               {/* Submit Button */}
               <Button
                 onClick={handleSubmitWish}
-                disabled={!wishText.trim() || submitting}
+                disabled={!wishText.trim() || isLoading || !connected}
                 className='w-full'
                 size='lg'>
-                {submitting ? (
+                {isLoading ? (
                   <>
                     <Heart className='w-5 h-5 mr-2 animate-pulse' />
                     Minting Wish NFT...
+                  </>
+                ) : !connected ? (
+                  <>
+                    <Heart className='w-5 h-5 mr-2' />
+                    Connect Wallet First
                   </>
                 ) : (
                   <>
