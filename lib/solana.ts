@@ -73,26 +73,10 @@ export function getPdaAddress(seeds: (Buffer | Uint8Array)[], programId: PublicK
     const [pda] = PublicKey.findProgramAddressSync(seeds, programId);
     return pda;
 }
-
-// 获取寺庙配置 PDA
-export function getTempleConfigPda(programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('temple_config_v1')], programId);
-}
-
-// 获取全局统计 PDA
-export function getGlobalStatsPda(programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('temple_config_v1')], programId);
-}
-
-// 获取用户状态 PDA
-export function getUserStatePda(userPubkey: PublicKey, programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('user_state_v1'), userPubkey.toBuffer()], programId);
-}
-
-// 获取用户香火状态 PDA
-export function getUserIncenseStatePda(userPubkey: PublicKey, programId: PublicKey): PublicKey {
-    return getPdaAddress([Buffer.from('user_incense_state_v1'), userPubkey.toBuffer()], programId);
-}
+ 
+ 
+ 
+ 
 
 // 获取 NFT 铸造账户 PDA
 export function getNftMintPda(templeConfigPda: PublicKey, incenseId: number, programId: PublicKey): PublicKey {

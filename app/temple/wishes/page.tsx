@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Globe, Heart, Info, Lock, Share2, Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { useCreateWish } from '@/hooks/use-create-wish';
+import { useCreateWish, generateWishId, hashWishContent } from '@/hooks/use-create-wish';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 
@@ -18,43 +18,67 @@ export default function WishesPage() {
   const [wishesCount, setWishesCount] = useState(1);
   const maxFreeWishes = 3;
 
-  const { wallet, connected } = useWallet();
-  const { createWish, isLoading, error, clearError } = useCreateWish();
+  const { publicKey, connected } = useWallet();
+  const { createWish, loading, error, result, resetState } = useCreateWish();
 
   const handleSubmitWish = async () => {
-    if (!wishText.trim()) return;
-    if (!connected) {
+    if (!wishText.trim()) {
+      toast.error('请输入许愿内容');
+      return;
+    }
+    if (!connected || !publicKey) {
       toast.error('请先连接钱包');
       return;
     }
 
     try {
-      console.log('[solji] Submitting wish:', { text: wishText, isPublic });
+      console.log('[solji] 开始许愿:', { text: wishText, isPublic });
 
-      // 生成内容哈希 (简化版本，实际应该上传到IPFS)
-      const contentHash = Array.from({ length: 32 }, (_, i) =>
-        wishText.charCodeAt(i % wishText.length) % 256
-      );
+      // 1. 生成许愿 ID（使用时间戳）
+      const wishId = generateWishId();
+      console.log('[solji] 生成许愿 ID:', wishId);
 
+      // 2. 生成内容哈希（使用 SHA-256）
+      const contentHash = await hashWishContent(wishText);
+      console.log('[solji] 生成内容哈希:', contentHash.length, 'bytes');
+
+      // 3. 执行许愿
       const result = await createWish({
+        wishId,
         contentHash,
         isAnonymous: !isPublic
       });
 
-      console.log('[solji] Wish submitted successfully:', result);
+      console.log('[solji] 许愿成功:', result);
 
-      toast.success(`许愿成功！获得 ${result.wishId} 号许愿NFT`);
-
-      if (result.amuletDropped) {
-        toast.success('恭喜！获得了护符！');
+      // 显示成功消息
+      if (result.isFreewish) {
+        toast.success(`✨ 免费许愿成功！获得 +${result.rewardKarmaPoints} 功德`);
+      } else {
+        toast.success(`✨ 许愿成功！消耗 ${result.reduceKarmaPoints} 功德，获得 +${result.rewardKarmaPoints} 功德`);
       }
 
+      // 检查御守掉落
+      if (result.isAmuletDropped) {
+        toast.success('🎉 恭喜！许愿时获得了御守铸造机会！');
+      }
+
+      // 更新状态
       setWishesCount(wishesCount + 1);
       setWishText('');
 
     } catch (err: any) {
-      console.error('[solji] Wish submission failed:', err);
-      toast.error(err.message || '许愿失败');
+      console.error('[solji] 许愿失败:', err);
+      
+      // 特殊处理用户未初始化错误
+      if (err.code === 'USER_NOT_INITIALIZED') {
+        toast.error('请先进行烧香或抽签操作来初始化您的账户', {
+          description: '初始化后即可许愿',
+          duration: 5000,
+        });
+      } else {
+        toast.error(err.message || '许愿失败');
+      }
     }
   };
 
@@ -172,25 +196,25 @@ export default function WishesPage() {
               {/* Submit Button */}
               <Button
                 onClick={handleSubmitWish}
-                disabled={!wishText.trim() || isLoading || !connected}
+                disabled={!wishText.trim() || loading || !connected}
                 className='w-full'
                 size='lg'>
-                {isLoading ? (
+                {loading ? (
                   <>
                     <Heart className='w-5 h-5 mr-2 animate-pulse' />
-                    Minting Wish NFT...
+                    许愿中...
                   </>
                 ) : !connected ? (
                   <>
                     <Heart className='w-5 h-5 mr-2' />
-                    Connect Wallet First
+                    请先连接钱包
                   </>
                 ) : (
                   <>
                     <Heart className='w-5 h-5 mr-2' />
                     {remainingFreeWishes > 0
-                      ? 'Make Wish (Free)'
-                      : 'Make Wish (5 Merit)'}
+                      ? '许愿 (免费)'
+                      : '许愿 (消耗 5 功德)'}
                   </>
                 )}
               </Button>

@@ -17,6 +17,9 @@ import {
   Zap
 } from 'lucide-react';
 import { useState } from 'react';
+import { useDonateFund, calculateDonationRewards } from '@/hooks/use-donate-fund';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { toast } from 'sonner';
 
 const TIER_ICONS = {
   bronze: Award,
@@ -42,28 +45,72 @@ const TIER_TEXT_COLORS = {
 export default function DonatePage() {
   const [selectedTier, setSelectedTier] = useState<DonationTier | null>(null);
   const [customAmount, setCustomAmount] = useState('');
-  const [donating, setDonating] = useState(false);
   const [donated, setDonated] = useState(false);
+  const [lastResult, setLastResult] = useState<any>(null);
+
+  const { publicKey, connected } = useWallet();
+  const { donateFund, loading, error, result, resetState } = useDonateFund();
 
   const handleDonate = async () => {
-    setDonating(true);
-    console.log('[solji] Processing donation:', {
-      tier: selectedTier,
-      amount: customAmount
-    });
+    if (!customAmount || !selectedTier) {
+      toast.error('请输入捐赠金额');
+      return;
+    }
 
-    // Simulate donation transaction
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    if (!connected || !publicKey) {
+      toast.error('请先连接钱包');
+      return;
+    }
 
-    console.log('[solji] Donation successful, badge NFT minted');
-    setDonating(false);
-    setDonated(true);
+    const amount = parseFloat(customAmount);
+    if (amount < DONATION_TIERS[selectedTier].minAmount) {
+      toast.error(`最低捐赠金额为 ${DONATION_TIERS[selectedTier].minAmount} SOL`);
+      return;
+    }
 
-    setTimeout(() => {
-      setDonated(false);
-      setSelectedTier(null);
-      setCustomAmount('');
-    }, 3000);
+    try {
+      console.log('[solji] 开始捐赠:', {
+        tier: selectedTier,
+        amount: customAmount
+      });
+
+      // 预览奖励
+      const rewards = calculateDonationRewards(amount);
+      console.log('[solji] 预计奖励:', rewards);
+
+      // 执行捐赠
+      const result = await donateFund({ amount });
+
+      console.log('[solji] 捐赠成功:', result);
+
+      // 显示成功消息
+      toast.success(`✨ 捐赠成功！获得 +${result.rewardKarmaPoints} 功德 +${result.rewardIncenseValue} 香火值`);
+
+      // 检查徽章 NFT
+      if (result.donationState.hasMintedBadgeNft) {
+        const level = result.donationState.donationLevel;
+        toast.success(`🎖️ 徽章 NFT 已${result.donationState.totalDonationCount === 1 ? '铸造' : '升级'}！当前等级: ${level}`);
+      }
+
+      // 检查香火空投
+      if (amount >= 5.0) {
+        toast.success('🎁 恭喜！获得高级香型空投！');
+      }
+
+      setLastResult(result);
+      setDonated(true);
+
+      setTimeout(() => {
+        setDonated(false);
+        setSelectedTier(null);
+        setCustomAmount('');
+        resetState();
+      }, 5000);
+
+    } catch (err: any) {
+      console.error('[solji] 捐赠失败:', err);
+      toast.error(err.message || '捐赠失败');
+    }
   };
 
   return (
@@ -231,27 +278,33 @@ export default function DonatePage() {
                 variant='outline'
                 onClick={() => setSelectedTier(null)}
                 className='flex-1'
-                disabled={donating}>
-                Cancel
+                disabled={loading}>
+                取消
               </Button>
               <Button
                 onClick={handleDonate}
                 className='flex-1'
                 disabled={
-                  donating ||
+                  loading ||
+                  !connected ||
                   !customAmount ||
                   Number.parseFloat(customAmount) <
                     DONATION_TIERS[selectedTier].minAmount
                 }>
-                {donating ? (
+                {loading ? (
                   <>
                     <Sparkles className='w-4 h-4 mr-2 animate-pulse' />
-                    Processing...
+                    捐赠中...
+                  </>
+                ) : !connected ? (
+                  <>
+                    <Sparkles className='w-4 h-4 mr-2' />
+                    请先连接钱包
                   </>
                 ) : (
                   <>
                     <Sparkles className='w-4 h-4 mr-2' />
-                    Donate{' '}
+                    捐赠{' '}
                     {customAmount || DONATION_TIERS[selectedTier].minAmount} SOL
                   </>
                 )}
@@ -270,16 +323,34 @@ export default function DonatePage() {
             </div>
             <div>
               <h3 className='text-2xl font-semibold mb-2'>
-                Thank You for Your Donation!
+                感谢您的捐赠！
               </h3>
               <p className='text-muted-foreground leading-relaxed'>
-                Your {DONATION_TIERS[selectedTier!].badge} badge NFT has been
-                minted and{' '}
+                {lastResult?.donationState.hasMintedBadgeNft && (
+                  <>
+                    您的 {DONATION_TIERS[selectedTier!].badge} 徽章 NFT 已
+                    {lastResult.donationState.totalDonationCount === 1 ? '铸造' : '升级'}！
+                    <br />
+                  </>
+                )}
+                获得{' '}
                 <span className='font-semibold text-primary'>
-                  +{DONATION_TIERS[selectedTier!].meritPoints.toLocaleString()}{' '}
-                  merit points
+                  +{lastResult?.rewardKarmaPoints || DONATION_TIERS[selectedTier!].meritPoints}{' '}
+                  功德值
                 </span>{' '}
-                have been added to your account.
+                和{' '}
+                <span className='font-semibold text-primary'>
+                  +{lastResult?.rewardIncenseValue || 0}{' '}
+                  香火值
+                </span>
+                {lastResult && parseFloat(customAmount) >= 5.0 && (
+                  <>
+                    <br />
+                    <span className='font-semibold text-amber-500'>
+                      🎁 额外获得高级香型空投！
+                    </span>
+                  </>
+                )}
               </p>
             </div>
           </div>
