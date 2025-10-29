@@ -9,6 +9,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import type { IncenseType } from '@/lib/types';
+import type { BurnIncenseResult } from '@/lib/contracts/burn-incense';
 import { CheckCircle2, Flame, Sparkles, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
@@ -19,7 +20,7 @@ interface BurnIncenseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   incense: IncenseType;
-  onBurnSuccess?: () => void;
+  onBurnSuccess?: (result: BurnIncenseResult, incense: IncenseType) => void;
 }
 
 export function BurnIncenseDialog({
@@ -69,9 +70,7 @@ export function BurnIncenseDialog({
       console.log('[solji] Incense burned successfully:', burnResult);
       setBurned(true);
 
-      if (onBurnSuccess) {
-        onBurnSuccess();
-      }
+      onBurnSuccess?.(burnResult, incense);
 
       // Reset after showing success
       setTimeout(() => {
