@@ -1319,7 +1319,8 @@ export type Temple = {
         {
           "name": "userState",
           "docs": [
-            "用户状态账户"
+            "用户状态账户（PDA）",
+            "存储用户的功德值、抽签次数等信息"
           ],
           "writable": true,
           "pda": {
@@ -1352,7 +1353,8 @@ export type Temple = {
         {
           "name": "user",
           "docs": [
-            "用户账户"
+            "用户账户（签名者）",
+            "必须是交易的签名者，用于身份验证"
           ],
           "writable": true,
           "signer": true
@@ -1360,7 +1362,8 @@ export type Temple = {
         {
           "name": "templeConfig",
           "docs": [
-            "寺庙状态账户"
+            "寺庙全局配置账户（PDA）",
+            "存储寺庙的全局统计信息"
           ],
           "writable": true,
           "pda": {
@@ -1390,7 +1393,24 @@ export type Temple = {
           }
         },
         {
+          "name": "randomnessAccount",
+          "docs": [
+            "",
+            "在生产环境中，此账户应该是 Switchboard 随机数账户。",
+            "使用 Option 类型允许在某些测试场景下不提供此账户。",
+            "",
+            "安全性说明：",
+            "- 应验证账户所有者是 Switchboard 程序",
+            "- 应检查随机数的时效性（slot 差值）",
+            "- 如果未提供，将降级到伪随机数（不推荐用于生产）"
+          ],
+          "optional": true
+        },
+        {
           "name": "systemProgram",
+          "docs": [
+            "Solana 系统程序"
+          ],
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -2311,53 +2331,98 @@ export type Temple = {
   "errors": [
     {
       "code": 6000,
-      "name": "invalidTreasury",
-      "msg": "Invalid treasury account"
+      "name": "invalidUser",
+      "msg": "Invalid user"
     },
     {
       "code": 6001,
-      "name": "invalidQuantity",
-      "msg": "Invalid buy incense quantity "
+      "name": "burnCountOverflow",
+      "msg": "Burn count overflow"
     },
     {
       "code": 6002,
-      "name": "invalidPrice",
-      "msg": "Invalid price, must be greater than 0"
+      "name": "wishCountOverflow",
+      "msg": "Wish count overflow"
     },
     {
       "code": 6003,
-      "name": "invalidSubtotal",
-      "msg": "Invalid subtotal calculation"
+      "name": "invalidRandomnessAccount",
+      "msg": "Invalid randomness account"
     },
     {
       "code": 6004,
-      "name": "tooManyBuyIncenseItems",
-      "msg": "Too many buy incense items, maximum is 6"
+      "name": "notEnoughKarmaPoints",
+      "msg": "Not enough karma points"
     },
     {
       "code": 6005,
-      "name": "emptyBuyIncenseList",
-      "msg": "Empty buy incense list"
+      "name": "burnOperationsOverflow",
+      "msg": "Burn operations overflow"
     },
     {
       "code": 6006,
-      "name": "insufficientPayment",
-      "msg": "Insufficient payment amount"
+      "name": "incenseBurnedOverflow",
+      "msg": "Incense burned overflow"
     },
     {
       "code": 6007,
-      "name": "paymentMismatch",
-      "msg": "Payment amount mismatch"
+      "name": "buyCountOverflow",
+      "msg": "Buy count overflow"
     },
     {
       "code": 6008,
-      "name": "incenseTypeNotAvailable",
-      "msg": "Incense type not available for buy incense"
+      "name": "karmaPointsOverflow",
+      "msg": "Karma points overflow"
     },
     {
       "code": 6009,
-      "name": "invalidIncenseType",
-      "msg": "Invalid incense type"
+      "name": "insufficientKarmaPoints",
+      "msg": "Insufficient karma points"
+    },
+    {
+      "code": 6010,
+      "name": "incenseValueOverflow",
+      "msg": "Incense value overflow"
+    },
+    {
+      "code": 6011,
+      "name": "spendingOverflow",
+      "msg": "Spending amount overflow"
+    },
+    {
+      "code": 6012,
+      "name": "donationOverflow",
+      "msg": "Donation amount overflow"
+    },
+    {
+      "code": 6013,
+      "name": "dailyBurnLimitExceeded",
+      "msg": "Daily burn operation limit exceeded"
+    },
+    {
+      "code": 6014,
+      "name": "dailyDrawLimitExceeded",
+      "msg": "Daily draw limit exceeded"
+    },
+    {
+      "code": 6015,
+      "name": "dailyWishLimitExceeded",
+      "msg": "Daily wish limit exceeded"
+    },
+    {
+      "code": 6016,
+      "name": "userStateAlreadyExists",
+      "msg": "User state already exists"
+    },
+    {
+      "code": 6017,
+      "name": "userStateNotFound",
+      "msg": "User state not found"
+    },
+    {
+      "code": 6018,
+      "name": "unauthorizedUserAccess",
+      "msg": "Unauthorized user access"
     }
   ],
   "types": [
@@ -2607,27 +2672,47 @@ export type Temple = {
     },
     {
       "name": "drawFortuneResult",
+      "docs": [
+        "抽签结果数据结构",
+        "",
+        "包含抽签的所有相关信息，用于返回给客户端"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "reduceKarmaPoints",
+            "docs": [
+              "本次抽签消耗的功德值"
+            ],
             "type": "u64"
           },
           {
             "name": "rewardKarmaPoints",
+            "docs": [
+              "本次抽签奖励的功德值"
+            ],
             "type": "u64"
           },
           {
             "name": "currentTimestamp",
+            "docs": [
+              "抽签时间戳"
+            ],
             "type": "i64"
           },
           {
             "name": "isFreeDraw",
+            "docs": [
+              "是否为免费抽签（每日首次）"
+            ],
             "type": "bool"
           },
           {
             "name": "fortune",
+            "docs": [
+              "运势结果"
+            ],
             "type": {
               "defined": {
                 "name": "fortuneResult"
@@ -2639,6 +2724,11 @@ export type Temple = {
     },
     {
       "name": "fortuneResult",
+      "docs": [
+        "运势结果枚举",
+        "",
+        "定义了7种可能的运势结果，每种结果有不同的出现概率"
+      ],
       "type": {
         "kind": "enum",
         "variants": [

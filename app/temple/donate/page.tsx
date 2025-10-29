@@ -16,10 +16,12 @@ import {
   Sparkles,
   Zap
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDonateFund, calculateDonationRewards } from '@/hooks/use-donate-fund';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
+import { getDonationHonorWall, type DonationRecord } from '@/lib/api/temple';
+import { DONATE_LEVELS } from '@/lib/types';
 
 const TIER_ICONS = {
   bronze: Award,
@@ -47,9 +49,61 @@ export default function DonatePage() {
   const [customAmount, setCustomAmount] = useState('');
   const [donated, setDonated] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
+  const [honorWallData, setHonorWallData] = useState<DonationRecord[]>([]);
+  const [isLoadingHonorWall, setIsLoadingHonorWall] = useState(true);
 
   const { publicKey, connected } = useWallet();
   const { donateFund, loading, error, result, resetState } = useDonateFund();
+
+  // 获取荣誉墙数据
+  useEffect(() => {
+    async function fetchHonorWall() {
+      try {
+        setIsLoadingHonorWall(true);
+        const response = await getDonationHonorWall(20, 1); // 获取前20条记录
+        setHonorWallData(response.list);
+      } catch (error) {
+        console.error('获取荣誉墙数据失败:', error);
+        toast.error('获取荣誉墙数据失败');
+      } finally {
+        setIsLoadingHonorWall(false);
+      }
+    }
+
+    fetchHonorWall();
+  }, []);
+
+  // 根据捐赠金额获取等级徽章
+  // amount 单位是 SOL，直接与 DONATE_LEVELS.minAmount 比较
+  const getDonationLevel = (amountInSol: number) => {
+    // 从高到低查找匹配的等级
+    for (let i = DONATE_LEVELS.length - 1; i >= 0; i--) {
+      if (amountInSol >= DONATE_LEVELS[i].minAmount) {
+        return DONATE_LEVELS[i];
+      }
+    }
+    return null; // 未达到最低等级
+  };
+
+  // 格式化地址
+  const formatAddress = (address: string) => {
+    if (!address || address.length < 8) return address;
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  };
+
+  // 格式化日期
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
   const handleDonate = async () => {
     if (!customAmount || !selectedTier) {
@@ -358,77 +412,86 @@ export default function DonatePage() {
       )}
 
       {/* Honor Wall */}
-      <div className='mt-12'>
-        <h2 className='text-2xl font-bold mb-6'>Honor Wall</h2>
-        <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-4'>
-          {[
-            {
-              user: '0x1a2b...3c4d',
-              amount: 5.5,
-              tier: 'supreme',
-              date: '2025-01-05'
-            },
-            {
-              user: '0x5e6f...7g8h',
-              amount: 2.3,
-              tier: 'gold',
-              date: '2025-01-05'
-            },
-            {
-              user: '0x9i0j...1k2l',
-              amount: 1.8,
-              tier: 'gold',
-              date: '2025-01-04'
-            },
-            {
-              user: '0x3m4n...5o6p',
-              amount: 0.5,
-              tier: 'silver',
-              date: '2025-01-04'
-            },
-            {
-              user: '0x7q8r...9s0t',
-              amount: 0.3,
-              tier: 'silver',
-              date: '2025-01-03'
-            },
-            {
-              user: '0x1u2v...3w4x',
-              amount: 0.1,
-              tier: 'bronze',
-              date: '2025-01-03'
-            }
-          ].map((donation, i) => {
-            const Icon = TIER_ICONS[donation.tier as DonationTier];
-            return (
-              <Card key={i} className='temple-card p-4'>
+      <div className='mt-12' id='honor-wall'>
+        <div className='flex items-center justify-between mb-6'>
+          <h2 className='text-2xl font-bold'>荣誉墙</h2>
+          <Badge variant='outline' className='text-xs'>
+            {honorWallData.length} 位捐赠者
+          </Badge>
+        </div>
+        
+        {isLoadingHonorWall ? (
+          <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-4'>
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className='temple-card p-4 animate-pulse'>
                 <div className='flex items-center gap-3'>
-                  <div
-                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
-                      TIER_COLORS[donation.tier as DonationTier]
-                    } flex items-center justify-center flex-shrink-0`}>
-                    <Icon
-                      className={`w-5 h-5 ${
-                        TIER_TEXT_COLORS[donation.tier as DonationTier]
-                      }`}
-                    />
+                  <div className='w-10 h-10 rounded-lg bg-muted' />
+                  <div className='flex-1 space-y-2'>
+                    <div className='h-4 bg-muted rounded w-24' />
+                    <div className='h-3 bg-muted rounded w-32' />
                   </div>
-                  <div className='flex-1 min-w-0'>
-                    <p className='text-sm font-semibold truncate'>
-                      {donation.user}
-                    </p>
-                    <p className='text-xs text-muted-foreground'>
-                      {donation.amount} SOL • {donation.date}
-                    </p>
-                  </div>
-                  <Badge variant='secondary' className='text-xs'>
-                    {DONATION_TIERS[donation.tier as DonationTier].badge}
-                  </Badge>
+                  <div className='h-5 w-16 bg-muted rounded' />
                 </div>
               </Card>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : honorWallData.length === 0 ? (
+          <Card className='temple-card p-8 text-center'>
+            <p className='text-muted-foreground'>暂无捐赠记录</p>
+          </Card>
+        ) : (
+          <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-4'>
+            {honorWallData.map((donation, i) => {
+              const level = getDonationLevel(donation.donation_amount);
+              const tierKey = level?.badgeLevel.toLowerCase() as DonationTier | undefined;
+              const Icon = tierKey ? TIER_ICONS[tierKey] : Award;
+              
+              return (
+                <Card key={i} className='temple-card p-4 hover:shadow-lg transition-shadow'>
+                  <div className='flex items-center gap-3'>
+                    {level ? (
+                      <div
+                        className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
+                          tierKey ? TIER_COLORS[tierKey] : 'from-gray-500/20 to-slate-500/20'
+                        } flex items-center justify-center flex-shrink-0`}>
+                        <Icon
+                          className={`w-5 h-5 ${
+                            tierKey ? TIER_TEXT_COLORS[tierKey] : 'text-gray-500'
+                          }`}
+                        />
+                      </div>
+                    ) : (
+                      <div className='w-10 h-10 rounded-lg bg-gradient-to-br from-gray-500/20 to-slate-500/20 flex items-center justify-center flex-shrink-0'>
+                        <Sparkles className='w-5 h-5 text-gray-500' />
+                      </div>
+                    )}
+                    <div className='flex-1 min-w-0'>
+                      <p className='text-sm font-semibold truncate'>
+                        {formatAddress(donation.user_address)}
+                      </p>
+                      <p className='text-xs text-muted-foreground'>
+                        {donation.donation_amount.toFixed(4)} SOL • {formatDate(donation.create_date)}
+                      </p>
+                    </div>
+                    {level && (
+                      <Badge 
+                        variant='secondary' 
+                        className={`text-xs ${
+                          tierKey === 'supreme' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20' :
+                          tierKey === 'gold' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
+                          tierKey === 'silver' ? 'bg-gray-400/10 text-gray-400 border-gray-400/20' :
+                          'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                        }`}
+                      >
+                        {level.name}
+                      </Badge>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

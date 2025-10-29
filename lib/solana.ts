@@ -9,14 +9,24 @@ export const NETWORK_CONFIG = {
     devnet: {
         rpcUrl: 'https://api.devnet.solana.com',
         programId: '81BWs7RGtN2EEvaGWZe8EQ8nhswHTHVzYUn5iPFoRr9o', // 从 Anchor.toml 获取
+        // Switchboard 随机数账户（devnet）
+        // 注意：这是一个示例地址，实际使用时需要：
+        // 1. 创建自己的 Switchboard randomness account
+        // 2. 或者使用 Switchboard On-Demand 服务
+        // 3. 如果不提供，后端会降级到伪随机数（仅用于测试）
+        randomnessAccount: 'GvDMxPzN1sCj7L26YDK2HnMRXEQmQ2aemov8YBtPS7vR',
     },
     mainnet: {
         rpcUrl: 'https://api.mainnet-beta.solana.com',
         programId: '81BWs7RGtN2EEvaGWZe8EQ8nhswHTHVzYUn5iPFoRr9o',
+        // Switchboard VRF 随机数账户（mainnet）
+        randomnessAccount: 'GvDMxPzN1sCj7L26YDK2HnMRXEQmQ2aemov8YBtPS7vR',
     },
     'mainnet-beta': {
         rpcUrl: 'https://api.mainnet-beta.solana.com',
         programId: '81BWs7RGtN2EEvaGWZe8EQ8nhswHTHVzYUn5iPFoRr9o',
+        // Switchboard VRF 随机数账户（mainnet）
+        randomnessAccount: 'GvDMxPzN1sCj7L26YDK2HnMRXEQmQ2aemov8YBtPS7vR',
     },
 };
 
@@ -229,4 +239,41 @@ export function getAssociatedTokenAddressSync(mint: PublicKey, owner: PublicKey)
  */
 export async function getAssociatedTokenAddress(mint: PublicKey, owner: PublicKey): Promise<PublicKey> {
     return getAssociatedTokenAddressSync(mint, owner);
+}
+
+// ==================== 随机数相关 ====================
+
+/**
+ * 获取 Switchboard 随机数账户地址
+ * 根据当前网络返回对应的随机数账户
+ * 
+ * @returns {PublicKey} Switchboard 随机数账户的公钥
+ * 
+ * @remarks
+ * - 后端程序使用 `Option<AccountInfo>` 接收此账户
+ * - 如果不提供此账户，后端会降级到伪随机数（slot + timestamp）
+ * - 在 devnet 环境下，可以选择性传递此账户
+ * - 在生产环境（mainnet）下，强烈建议提供有效的 Switchboard 账户
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   const randomnessAccount = getRandomnessAccount();
+ *   accounts.randomness_account = randomnessAccount;
+ * } catch (error) {
+ *   // 不传递账户，后端使用降级方案
+ * }
+ * ```
+ */
+export function getRandomnessAccount(): PublicKey {
+    const network = getCurrentNetwork();
+    const config = NETWORK_CONFIG[network as keyof typeof NETWORK_CONFIG];
+    
+    if (!config || !config.randomnessAccount) {
+        console.warn(`⚠️ 未配置 ${network} 网络的随机数账户，使用默认值`);
+        // 返回一个默认的 Switchboard devnet 随机数账户
+        return new PublicKey('GvDMxPzN1sCj7L26YDK2HnMRXEQmQ2aemov8YBtPS7vR');
+    }
+    
+    return new PublicKey(config.randomnessAccount);
 }

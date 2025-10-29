@@ -9,6 +9,8 @@ import { Info, RefreshCw, ScrollText, Share2, Sparkles, AlertCircle } from 'luci
 import { useState, useEffect } from 'react';
 import { useDrawFortune } from '@/hooks/use-draw-fortune';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { getUserFortune, type FortuneRecord } from '@/lib/api/temple';
+import { toast } from 'sonner';
 
 const FORTUNE_TEXTS: Record<FortuneLevel, string[]> = {
   大吉: [
@@ -49,6 +51,10 @@ const FORTUNE_TEXTS: Record<FortuneLevel, string[]> = {
 };
 
 export default function FortunePage() {
+  const [selectedLevel, setSelectedLevel] = useState<FortuneLevel | null>(null);
+  const [fortuneText, setFortuneText] = useState<string>('');
+  const [fortuneHistory, setFortuneHistory] = useState<FortuneRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasDrawnToday, setHasDrawnToday] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [currentFortune, setCurrentFortune] = useState<{
@@ -57,8 +63,59 @@ export default function FortunePage() {
     meritBonus: number;
   } | null>(null);
 
-  const { connected } = useWallet();
-  const { loading, error, result, drawFortune, resetState } = useDrawFortune();
+  const { publicKey, connected } = useWallet();
+  const { drawFortune, loading, error, result, resetState } = useDrawFortune();
+
+  // 获取用户运势历史记录
+  useEffect(() => {
+    async function fetchFortuneHistory() {
+      if (!publicKey) {
+        setFortuneHistory([]);
+        return;
+      }
+
+      try {
+        setIsLoadingHistory(true);
+        const response = await getUserFortune(publicKey.toBase58(), 10, 1);
+        setFortuneHistory(response.list);
+      } catch (error) {
+        console.error('获取运势历史失败:', error);
+        // 不显示错误提示，静默失败
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    }
+
+    fetchFortuneHistory();
+  }, [publicKey]);
+
+  // 运势类型ID映射到运势等级
+  const getFortuneLevel = (fortuneTypeId: number): FortuneLevel => {
+    const fortuneMap: Record<number, FortuneLevel> = {
+      0: '大吉',
+      1: '中吉',
+      2: '小吉',
+      3: '吉',
+      4: '末吉',
+      5: '凶',
+      6: '大凶'
+    };
+    return fortuneMap[fortuneTypeId] || '吉';
+  };
+
+  // 格式化日期
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
   // 重置状态当页面加载时
   useEffect(() => {
@@ -108,6 +165,16 @@ export default function FortunePage() {
 
       setCurrentFortune(fortune);
       setHasDrawnToday(true);
+
+      // 抽签成功后刷新历史记录
+      if (publicKey) {
+        try {
+          const response = await getUserFortune(publicKey.toBase58(), 10, 1);
+          setFortuneHistory(response.list);
+        } catch (error) {
+          console.error('刷新运势历史失败:', error);
+        }
+      }
 
     } catch (error: any) {
       console.error('[solji] 抽签失败:', error);
@@ -313,42 +380,72 @@ export default function FortunePage() {
       )}
 
       {/* Fortune History */}
-      <div className='mt-12'>
-        <h2 className='text-2xl font-bold mb-6'>Recent Fortunes</h2>
-        <div className='space-y-3'>
-          {[
-            { level: '中吉', date: '2025-01-05', shared: true },
-            { level: '吉', date: '2025-01-04', shared: false },
-            { level: '小吉', date: '2025-01-03', shared: true }
-          ].map((fortune, i) => (
-            <Card key={i} className='temple-card p-4'>
-              <div className='flex items-center justify-between'>
+      <div className='mt-12' id='fortune-history'>
+        <div className='flex items-center justify-between mb-6'>
+          <h2 className='text-2xl font-bold'>运势历史</h2>
+          {connected && fortuneHistory && (
+            <Badge variant='outline' className='text-xs'>
+              {fortuneHistory.length} 条记录
+            </Badge>
+          )}
+        </div>
+
+        {!connected ? (
+          <Card className='temple-card p-8 text-center'>
+            <AlertCircle className='w-12 h-12 mx-auto mb-4 text-muted-foreground' />
+            <p className='text-muted-foreground'>请连接钱包查看您的运势历史</p>
+          </Card>
+        ) : isLoadingHistory || !fortuneHistory ? (
+          <div className='space-y-3'>
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className='temple-card p-4 animate-pulse'>
                 <div className='flex items-center gap-3'>
-                  <div className='w-10 h-10 rounded-lg bg-muted flex items-center justify-center'>
-                    <ScrollText className='w-5 h-5 text-muted-foreground' />
-                  </div>
-                  <div>
-                    <p
-                      className={`font-semibold ${getFortuneColor(
-                        fortune.level as FortuneLevel
-                      )}`}>
-                      {fortune.level}
-                    </p>
-                    <p className='text-xs text-muted-foreground'>
-                      {fortune.date}
-                    </p>
+                  <div className='w-10 h-10 rounded-lg bg-muted' />
+                  <div className='flex-1 space-y-2'>
+                    <div className='h-4 bg-muted rounded w-20' />
+                    <div className='h-3 bg-muted rounded w-32' />
                   </div>
                 </div>
-                {fortune.shared && (
-                  <Badge variant='secondary' className='text-xs'>
-                    <Share2 className='w-3 h-3 mr-1' />
-                    Shared
-                  </Badge>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        ) : fortuneHistory.length === 0 ? (
+          <Card className='temple-card p-8 text-center'>
+            <ScrollText className='w-12 h-12 mx-auto mb-4 text-muted-foreground' />
+            <p className='text-muted-foreground mb-2'>暂无运势记录</p>
+            <p className='text-xs text-muted-foreground'>抽取您的第一支签吧！</p>
+          </Card>
+        ) : (
+          <div className='space-y-3'>
+            {fortuneHistory.map((fortune, i) => {
+              const level = getFortuneLevel(fortune.fortune_type_id);
+              return (
+                <Card key={i} className='temple-card p-4 hover:shadow-lg transition-shadow'>
+                  <div className='flex items-center justify-between'>
+                    <div className='flex items-center gap-3'>
+                      <div className='w-10 h-10 rounded-lg bg-muted flex items-center justify-center'>
+                        <ScrollText className='w-5 h-5 text-muted-foreground' />
+                      </div>
+                      <div>
+                        <p className={`font-semibold ${getFortuneColor(level)}`}>
+                          {level}
+                        </p>
+                        <p className='text-xs text-muted-foreground'>
+                          {formatDate(fortune.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className='text-right'>
+                      <p className='text-xs text-muted-foreground'>
+                        {fortune.fortune_content}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

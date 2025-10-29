@@ -184,3 +184,53 @@ export type AmuletType =
   | 'health';
 export type AmuletRarity = 'common' | 'rare' | 'epic' | 'legendary';
  
+
+
+
+
+/**
+ * 捐赠等级系统
+ * Donate Level System
+ */
+export interface DonateLevel {
+  level: number;
+  name: string;
+  nameEn: string;
+  minAmount: number;
+  badgeLevel: 'Bronze' | 'Silver' | 'Gold' | 'Supreme';
+}
+
+/**
+ * 功德值等级配置
+ * 居士 → 香客 → 供奉 → 寺主
+ */
+export const DONATE_LEVELS: readonly DonateLevel[] = [
+  {
+    level: 1,
+    name: '铜德徽章',
+    nameEn: 'Bronze',
+    minAmount: 0.05,
+    badgeLevel: 'Bronze'
+  },
+  {
+    level: 2,
+    name: '银德徽章',
+    nameEn: 'Silver',
+    minAmount: 0.2,
+    badgeLevel: 'Silver'
+  },
+  {
+    level: 3,
+    name: '金德徽章',
+    nameEn: 'Gold',
+    minAmount: 1,
+    badgeLevel: 'Gold'
+  },
+  {
+    level: 4,
+    name: '至尊徽章',
+    nameEn: 'Supreme',
+    minAmount: 5,
+    badgeLevel: 'Supreme'
+  }
+] as const;

@@ -6,7 +6,8 @@ import {
     NETWORK_CONFIG, 
     getCurrentNetwork,
     getTempleConfigPda,
-    getUserStatePda
+    getUserStatePda,
+    getRandomnessAccount
 } from '@/lib/solana';
 import { Temple } from '@/types/temple';
 
@@ -115,18 +116,49 @@ export class DrawFortuneContract {
                 user: userPubkey.toString(),
             });
 
-            // 调用抽签指令 - 完全按照测试文件的方式
+            // 调用抽签指令
             console.log('📤 发送抽签交易...');
+            
+            // 获取当前网络环境
+            const network = getCurrentNetwork();
+            console.log('🌐 当前网络:', network);
+            
+            // 构建账户对象
+            // 注意：对于 optional 账户，Anchor 期望使用驼峰命名（randomnessAccount）
+            // 但必须显式设置为 null 或提供账户地址
+            const accounts: any = {
+                userState: userStatePda,
+                user: userPubkey,
+                templeConfig: templeConfigPda,
+                randomnessAccount: null, // 默认为 null（使用降级方案）
+                systemProgram: SystemProgram.programId,
+            };
+            
+            // 在非 localnet 环境下尝试添加随机数账户
+            // 后端使用 Option<AccountInfo>，如果为 null 则使用降级方案
+            if (network !== 'localnet') {
+                try {
+                    const randomnessAccount = getRandomnessAccount();
+                    console.log('🎲 随机数账户:', randomnessAccount.toString());
+                    accounts.randomnessAccount = randomnessAccount;
+                } catch (error) {
+                    console.warn('⚠️ 无法获取随机数账户，将使用降级方案（伪随机数）');
+                    // 保持为 null，后端会使用降级方案
+                    accounts.randomnessAccount = null;
+                }
+            } else {
+                console.log('🏠 Localnet 环境，不使用随机数账户');
+                accounts.randomnessAccount = null;
+            }
+            
             const tx = await (this.program.methods as any)
                 .drawFortune()
-                .accounts({
-                    user: userPubkey,
-                })
+                .accounts(accounts)
                 .rpc();
 
             console.log('✅ 抽签交易提交成功:', tx);
 
-            // 等待交易确认
+                        // 等待交易确认
             await this.connection.confirmTransaction(tx, 'confirmed');
             console.log('✅ 交易确认成功');
 
