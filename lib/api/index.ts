@@ -4,6 +4,7 @@ import type {
   FortuneHistoryResponse,
   HonorWallResponse,
   IncenseLeaderboardResponse,
+  ProfileResponse,
   TempleLevelResponse,
   TempleStatsResponse,
   WishesResponse
@@ -50,8 +51,25 @@ export async function getWishes(): Promise<WishesResponse> {
   return httpGet<WishesResponse>('/api/wishes');
 }
 
-export async function getProfile(
-  userPubkey: string
-): Promise<FortuneHistoryResponse> {
-  return httpGet<FortuneHistoryResponse>(`/api/profile/${userPubkey}`);
+const isNotFoundError = (error: unknown) => {
+  return error instanceof Error && /HTTP\s+404/i.test(error.message);
+};
+
+export async function getProfile(): Promise<ProfileResponse | null> {
+  try {
+    return await httpGet<ProfileResponse>('/api/profile');
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      throw error;
+    }
+
+    try {
+      return await httpGet<ProfileResponse>('/api/user/profile');
+    } catch (innerError) {
+      if (isNotFoundError(innerError)) {
+        return null;
+      }
+      throw innerError;
+    }
+  }
 }
