@@ -1,6 +1,7 @@
 import { I18nProvider } from '@/lib/i18n/context';
 import { ThemeProvider } from '@/lib/theme/context';
 import { WalletContextProvider } from '@/components/wallet-provider';
+import { UserStateProvider } from '@/components/user-state-provider';
 import { Analytics } from '@vercel/analytics/next';
 import { GeistMono } from 'geist/font/mono';
 import { GeistSans } from 'geist/font/sans';
@@ -25,14 +26,16 @@ export default function RootLayout({
       <body
         className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}>
         <WalletContextProvider>
-          <ThemeProvider>
-            <I18nProvider>
-              <Suspense fallback={null}>
-                {children}
-                <Analytics />
-              </Suspense>
-            </I18nProvider>
-          </ThemeProvider>
+          <UserStateProvider>
+            <ThemeProvider>
+              <I18nProvider>
+                <Suspense fallback={null}>
+                  {children}
+                  <Analytics />
+                </Suspense>
+              </I18nProvider>
+            </ThemeProvider>
+          </UserStateProvider>
         </WalletContextProvider>
       </body>
     </html>

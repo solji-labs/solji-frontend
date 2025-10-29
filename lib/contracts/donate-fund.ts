@@ -7,7 +7,6 @@ import {
     getTempleConfigPda,
     getUserStatePda,
     getUserIncenseStatePda,
-    getUserDonationStatePda,
     getBadgeNftMintPda,
     getAssociatedTokenAddressSync,
     getMetadataPda
@@ -105,7 +104,6 @@ export class DonateFundContract {
             const templeConfigPda = getTempleConfigPda(this.programId);
             const userStatePda = getUserStatePda(userPubkey, this.programId);
             const userIncenseStatePda = getUserIncenseStatePda(userPubkey, this.programId);
-            const userDonationStatePda = getUserDonationStatePda(userPubkey, this.programId);
             const nftMintAccount = getBadgeNftMintPda(userPubkey, this.programId);
             const userNftAssociatedTokenAccount = getAssociatedTokenAddressSync(nftMintAccount, userPubkey);
             const metaAccount = getMetadataPda(nftMintAccount);
@@ -119,7 +117,6 @@ export class DonateFundContract {
                 templeTreasury: templeTreasury.toString(),
                 userState: userStatePda.toString(),
                 userIncenseState: userIncenseStatePda.toString(),
-                userDonationState: userDonationStatePda.toString(),
                 nftMint: nftMintAccount.toString(),
                 user: userPubkey.toString(),
             });
@@ -143,19 +140,14 @@ export class DonateFundContract {
 
             // 获取更新后的账户状态
             const userStateAfter: any = await this.program.account.userState.fetch(userStatePda);
-            const userDonationStateAfter: any = await this.program.account.userDonationState.fetch(userDonationStatePda);
 
             console.log('📊 捐赠后用户状态:', {
                 karmaPoints: userStateAfter.karmaPoints.toString(),
                 totalIncenseValue: userStateAfter.totalIncenseValue.toString(),
                 donationUnlockedBurns: userStateAfter.donationUnlockedBurns,
-            });
-
-            console.log('📊 捐赠后捐赠状态:', {
-                totalDonationAmount: userDonationStateAfter.totalDonationAmount.toString(),
-                totalDonationCount: userDonationStateAfter.totalDonationCount,
-                donationLevel: userDonationStateAfter.donationLevel,
-                hasMintedBadgeNft: userDonationStateAfter.hasMintedBadgeNft,
+                totalDonationAmount: userStateAfter.totalDonationAmount.toString(),
+                totalDonationCount: userStateAfter.totalDonationCount.toString(),
+                hasMintedBadgeNft: userStateAfter.hasMintedBadgeNft,
             });
 
             // 从交易日志中解析返回值
@@ -206,10 +198,10 @@ export class DonateFundContract {
                     donationUnlockedBurns: userStateAfter.donationUnlockedBurns,
                 },
                 donationState: {
-                    totalDonationAmount: userDonationStateAfter.totalDonationAmount.toNumber(),
-                    totalDonationCount: userDonationStateAfter.totalDonationCount,
-                    donationLevel: userDonationStateAfter.donationLevel,
-                    hasMintedBadgeNft: userDonationStateAfter.hasMintedBadgeNft,
+                    totalDonationAmount: userStateAfter.totalDonationAmount.toNumber(),
+                    totalDonationCount: userStateAfter.totalDonationCount.toNumber(),
+                    donationLevel: this.calculateDonationLevel(userStateAfter.totalDonationAmount.toNumber()),
+                    hasMintedBadgeNft: userStateAfter.hasMintedBadgeNft,
                 },
             };
 
@@ -231,6 +223,20 @@ export class DonateFundContract {
     }
 
     /**
+     * 计算捐赠等级
+     * 基于总捐赠金额（lamports）
+     */
+    private calculateDonationLevel(totalAmountLamports: number): number {
+        const amountInSol = totalAmountLamports / 1_000_000_000;
+        
+        if (amountInSol >= 5.0) return 4;
+        if (amountInSol >= 1.0) return 3;
+        if (amountInSol >= 0.2) return 2;
+        if (amountInSol >= 0.05) return 1;
+        return 0;
+    }
+
+    /**
      * 获取用户状态
      */
     async getUserState(userPubkey: PublicKey): Promise<any> {
@@ -239,11 +245,16 @@ export class DonateFundContract {
     }
 
     /**
-     * 获取用户捐赠状态
+     * 获取用户捐赠状态（从 UserState 中提取）
      */
     async getUserDonationState(userPubkey: PublicKey): Promise<any> {
-        const userDonationStatePda = getUserDonationStatePda(userPubkey, this.programId);
-        return await (this.program.account as any).userDonationState.fetch(userDonationStatePda);
+        const userState = await this.getUserState(userPubkey);
+        return {
+            totalDonationAmount: userState.totalDonationAmount,
+            totalDonationCount: userState.totalDonationCount,
+            donationLevel: this.calculateDonationLevel(userState.totalDonationAmount.toNumber()),
+            hasMintedBadgeNft: userState.hasMintedBadgeNft,
+        };
     }
 
     /**

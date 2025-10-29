@@ -133,7 +133,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -395,7 +395,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -661,7 +661,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -906,7 +906,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1030,7 +1030,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1060,48 +1060,6 @@ export type Temple = {
                   110,
                   115,
                   101,
-                  95,
-                  115,
-                  116,
-                  97,
-                  116,
-                  101,
-                  95,
-                  118,
-                  49
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
-          "name": "userDonationState",
-          "docs": [
-            "用户捐助状态账户"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  115,
-                  101,
-                  114,
-                  95,
-                  100,
-                  111,
-                  110,
-                  97,
-                  116,
-                  105,
-                  111,
-                  110,
                   95,
                   115,
                   116,
@@ -1381,7 +1339,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1755,7 +1713,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1972,49 +1930,7 @@ export type Temple = {
                   101,
                   95,
                   118,
-                  49
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
-          "name": "userDonationState",
-          "docs": [
-            "用户捐助状态账户"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  115,
-                  101,
-                  114,
-                  95,
-                  100,
-                  111,
-                  110,
-                  97,
-                  116,
-                  105,
-                  111,
-                  110,
-                  95,
-                  115,
-                  116,
-                  97,
-                  116,
-                  101,
-                  95,
-                  118,
-                  49
+                  50
                 ]
               },
               {
@@ -2286,19 +2202,6 @@ export type Temple = {
       ]
     },
     {
-      "name": "userDonationState",
-      "discriminator": [
-        220,
-        247,
-        222,
-        176,
-        15,
-        57,
-        96,
-        194
-      ]
-    },
-    {
       "name": "userIncenseState",
       "discriminator": [
         127,
@@ -2408,98 +2311,53 @@ export type Temple = {
   "errors": [
     {
       "code": 6000,
-      "name": "invalidUser",
-      "msg": "Invalid user"
+      "name": "invalidTreasury",
+      "msg": "Invalid treasury account"
     },
     {
       "code": 6001,
-      "name": "burnCountOverflow",
-      "msg": "Burn count overflow"
+      "name": "invalidQuantity",
+      "msg": "Invalid buy incense quantity "
     },
     {
       "code": 6002,
-      "name": "wishCountOverflow",
-      "msg": "Wish count overflow"
+      "name": "invalidPrice",
+      "msg": "Invalid price, must be greater than 0"
     },
     {
       "code": 6003,
-      "name": "invalidRandomnessAccount",
-      "msg": "Invalid randomness account"
+      "name": "invalidSubtotal",
+      "msg": "Invalid subtotal calculation"
     },
     {
       "code": 6004,
-      "name": "notEnoughKarmaPoints",
-      "msg": "Not enough karma points"
+      "name": "tooManyBuyIncenseItems",
+      "msg": "Too many buy incense items, maximum is 6"
     },
     {
       "code": 6005,
-      "name": "burnOperationsOverflow",
-      "msg": "Burn operations overflow"
+      "name": "emptyBuyIncenseList",
+      "msg": "Empty buy incense list"
     },
     {
       "code": 6006,
-      "name": "incenseBurnedOverflow",
-      "msg": "Incense burned overflow"
+      "name": "insufficientPayment",
+      "msg": "Insufficient payment amount"
     },
     {
       "code": 6007,
-      "name": "buyCountOverflow",
-      "msg": "Buy count overflow"
+      "name": "paymentMismatch",
+      "msg": "Payment amount mismatch"
     },
     {
       "code": 6008,
-      "name": "karmaPointsOverflow",
-      "msg": "Karma points overflow"
+      "name": "incenseTypeNotAvailable",
+      "msg": "Incense type not available for buy incense"
     },
     {
       "code": 6009,
-      "name": "insufficientKarmaPoints",
-      "msg": "Insufficient karma points"
-    },
-    {
-      "code": 6010,
-      "name": "incenseValueOverflow",
-      "msg": "Incense value overflow"
-    },
-    {
-      "code": 6011,
-      "name": "spendingOverflow",
-      "msg": "Spending amount overflow"
-    },
-    {
-      "code": 6012,
-      "name": "donationOverflow",
-      "msg": "Donation amount overflow"
-    },
-    {
-      "code": 6013,
-      "name": "dailyBurnLimitExceeded",
-      "msg": "Daily burn operation limit exceeded"
-    },
-    {
-      "code": 6014,
-      "name": "dailyDrawLimitExceeded",
-      "msg": "Daily draw limit exceeded"
-    },
-    {
-      "code": 6015,
-      "name": "dailyWishLimitExceeded",
-      "msg": "Daily wish limit exceeded"
-    },
-    {
-      "code": 6016,
-      "name": "userStateAlreadyExists",
-      "msg": "User state already exists"
-    },
-    {
-      "code": 6017,
-      "name": "userStateNotFound",
-      "msg": "User state not found"
-    },
-    {
-      "code": 6018,
-      "name": "unauthorizedUserAccess",
-      "msg": "Unauthorized user access"
+      "name": "invalidIncenseType",
+      "msg": "Invalid incense type"
     }
   ],
   "types": [
@@ -3230,46 +3088,6 @@ export type Temple = {
       }
     },
     {
-      "name": "userDonationState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "totalDonationAmount",
-            "type": "u64"
-          },
-          {
-            "name": "totalDonationCount",
-            "type": "u64"
-          },
-          {
-            "name": "donationLevel",
-            "type": "u8"
-          },
-          {
-            "name": "lastDonationAt",
-            "type": "i64"
-          },
-          {
-            "name": "canMintBuddhaNft",
-            "type": "bool"
-          },
-          {
-            "name": "hasMintedBuddhaNft",
-            "type": "bool"
-          },
-          {
-            "name": "hasMintedBadgeNft",
-            "type": "bool"
-          }
-        ]
-      }
-    },
-    {
       "name": "userIncenseState",
       "type": {
         "kind": "struct",
@@ -3384,6 +3202,41 @@ export type Temple = {
               "用户总消费金额 (lamports)"
             ],
             "type": "u64"
+          },
+          {
+            "name": "totalDonationAmount",
+            "docs": [
+              "用户捐助金额"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "totalDonationCount",
+            "docs": [
+              "用户捐助次数"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "canMintBuddhaNft",
+            "docs": [
+              "是否可以铸造佛像NFT"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "hasMintedBuddhaNft",
+            "docs": [
+              "是否铸造过佛像NFT"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "hasMintedBadgeNft",
+            "docs": [
+              "是否铸造过徽章NFT"
+            ],
+            "type": "bool"
           },
           {
             "name": "donationUnlockedBurns",

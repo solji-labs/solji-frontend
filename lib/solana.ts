@@ -99,12 +99,12 @@ export function getTempleConfigPda(programId?: PublicKey): PublicKey {
 
 /**
  * 获取用户状态 PDA
- * Seeds: ["user_state_v1", userPubkey]
+ * Seeds: ["user_state_v2", userPubkey]
  */
 export function getUserStatePda(userPubkey: PublicKey, programId?: PublicKey): PublicKey {
     const pid = programId || getProgramId();
     return getPdaAddress([
-        Buffer.from('user_state_v1'),
+        Buffer.from('user_state_v2'),
         userPubkey.toBuffer()
     ], pid);
 }

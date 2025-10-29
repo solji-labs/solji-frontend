@@ -127,7 +127,7 @@
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -389,7 +389,7 @@
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -655,7 +655,7 @@
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -900,7 +900,7 @@
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1024,7 +1024,7 @@
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1054,48 +1054,6 @@
                   110,
                   115,
                   101,
-                  95,
-                  115,
-                  116,
-                  97,
-                  116,
-                  101,
-                  95,
-                  118,
-                  49
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
-          "name": "user_donation_state",
-          "docs": [
-            "用户捐助状态账户"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  115,
-                  101,
-                  114,
-                  95,
-                  100,
-                  111,
-                  110,
-                  97,
-                  116,
-                  105,
-                  111,
-                  110,
                   95,
                   115,
                   116,
@@ -1375,7 +1333,7 @@
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1749,7 +1707,7 @@
                   101,
                   95,
                   118,
-                  49
+                  50
                 ]
               },
               {
@@ -1966,49 +1924,7 @@
                   101,
                   95,
                   118,
-                  49
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
-          "name": "user_donation_state",
-          "docs": [
-            "用户捐助状态账户"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  115,
-                  101,
-                  114,
-                  95,
-                  100,
-                  111,
-                  110,
-                  97,
-                  116,
-                  105,
-                  111,
-                  110,
-                  95,
-                  115,
-                  116,
-                  97,
-                  116,
-                  101,
-                  95,
-                  118,
-                  49
+                  50
                 ]
               },
               {
@@ -2280,19 +2196,6 @@
       ]
     },
     {
-      "name": "UserDonationState",
-      "discriminator": [
-        220,
-        247,
-        222,
-        176,
-        15,
-        57,
-        96,
-        194
-      ]
-    },
-    {
       "name": "UserIncenseState",
       "discriminator": [
         127,
@@ -2402,98 +2305,53 @@
   "errors": [
     {
       "code": 6000,
-      "name": "InvalidUser",
-      "msg": "Invalid user"
+      "name": "InvalidTreasury",
+      "msg": "Invalid treasury account"
     },
     {
       "code": 6001,
-      "name": "BurnCountOverflow",
-      "msg": "Burn count overflow"
+      "name": "InvalidQuantity",
+      "msg": "Invalid buy incense quantity "
     },
     {
       "code": 6002,
-      "name": "WishCountOverflow",
-      "msg": "Wish count overflow"
+      "name": "InvalidPrice",
+      "msg": "Invalid price, must be greater than 0"
     },
     {
       "code": 6003,
-      "name": "InvalidRandomnessAccount",
-      "msg": "Invalid randomness account"
+      "name": "InvalidSubtotal",
+      "msg": "Invalid subtotal calculation"
     },
     {
       "code": 6004,
-      "name": "NotEnoughKarmaPoints",
-      "msg": "Not enough karma points"
+      "name": "TooManyBuyIncenseItems",
+      "msg": "Too many buy incense items, maximum is 6"
     },
     {
       "code": 6005,
-      "name": "BurnOperationsOverflow",
-      "msg": "Burn operations overflow"
+      "name": "EmptyBuyIncenseList",
+      "msg": "Empty buy incense list"
     },
     {
       "code": 6006,
-      "name": "IncenseBurnedOverflow",
-      "msg": "Incense burned overflow"
+      "name": "InsufficientPayment",
+      "msg": "Insufficient payment amount"
     },
     {
       "code": 6007,
-      "name": "BuyCountOverflow",
-      "msg": "Buy count overflow"
+      "name": "PaymentMismatch",
+      "msg": "Payment amount mismatch"
     },
     {
       "code": 6008,
-      "name": "KarmaPointsOverflow",
-      "msg": "Karma points overflow"
+      "name": "IncenseTypeNotAvailable",
+      "msg": "Incense type not available for buy incense"
     },
     {
       "code": 6009,
-      "name": "InsufficientKarmaPoints",
-      "msg": "Insufficient karma points"
-    },
-    {
-      "code": 6010,
-      "name": "IncenseValueOverflow",
-      "msg": "Incense value overflow"
-    },
-    {
-      "code": 6011,
-      "name": "SpendingOverflow",
-      "msg": "Spending amount overflow"
-    },
-    {
-      "code": 6012,
-      "name": "DonationOverflow",
-      "msg": "Donation amount overflow"
-    },
-    {
-      "code": 6013,
-      "name": "DailyBurnLimitExceeded",
-      "msg": "Daily burn operation limit exceeded"
-    },
-    {
-      "code": 6014,
-      "name": "DailyDrawLimitExceeded",
-      "msg": "Daily draw limit exceeded"
-    },
-    {
-      "code": 6015,
-      "name": "DailyWishLimitExceeded",
-      "msg": "Daily wish limit exceeded"
-    },
-    {
-      "code": 6016,
-      "name": "UserStateAlreadyExists",
-      "msg": "User state already exists"
-    },
-    {
-      "code": 6017,
-      "name": "UserStateNotFound",
-      "msg": "User state not found"
-    },
-    {
-      "code": 6018,
-      "name": "UnauthorizedUserAccess",
-      "msg": "Unauthorized user access"
+      "name": "InvalidIncenseType",
+      "msg": "Invalid incense type"
     }
   ],
   "types": [
@@ -3224,46 +3082,6 @@
       }
     },
     {
-      "name": "UserDonationState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "total_donation_amount",
-            "type": "u64"
-          },
-          {
-            "name": "total_donation_count",
-            "type": "u64"
-          },
-          {
-            "name": "donation_level",
-            "type": "u8"
-          },
-          {
-            "name": "last_donation_at",
-            "type": "i64"
-          },
-          {
-            "name": "can_mint_buddha_nft",
-            "type": "bool"
-          },
-          {
-            "name": "has_minted_buddha_nft",
-            "type": "bool"
-          },
-          {
-            "name": "has_minted_badge_nft",
-            "type": "bool"
-          }
-        ]
-      }
-    },
-    {
       "name": "UserIncenseState",
       "type": {
         "kind": "struct",
@@ -3378,6 +3196,41 @@
               "用户总消费金额 (lamports)"
             ],
             "type": "u64"
+          },
+          {
+            "name": "total_donation_amount",
+            "docs": [
+              "用户捐助金额"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_donation_count",
+            "docs": [
+              "用户捐助次数"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "can_mint_buddha_nft",
+            "docs": [
+              "是否可以铸造佛像NFT"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "has_minted_buddha_nft",
+            "docs": [
+              "是否铸造过佛像NFT"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "has_minted_badge_nft",
+            "docs": [
+              "是否铸造过徽章NFT"
+            ],
+            "type": "bool"
           },
           {
             "name": "donation_unlocked_burns",

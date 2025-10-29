@@ -2,6 +2,7 @@
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletInfo } from '@/hooks/use-wallet';
+import { useUserState } from '@/hooks/use-user-state';
 import { Button } from '@/components/ui/button';
 import { Wallet, LogOut, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -10,6 +11,7 @@ import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 export function WalletButton() {
     const { connected, publicKey, disconnect, wallet, connect, select, wallets } = useWallet();
     const { balance, loading } = useWalletInfo();
+    const { fetchUserState, clearUserState, userState } = useUserState();
     const { setVisible } = useWalletModal();
     const [copied, setCopied] = useState(false);
     
@@ -96,6 +98,31 @@ export function WalletButton() {
         };
     }, [wallet, connected, connect]);
 
+    // 当钱包连接成功后，获取用户状态
+    useEffect(() => {
+        if (connected && publicKey) {
+            const walletAddress = publicKey.toString();
+            console.log('👤 钱包已连接，获取用户状态:', walletAddress);
+            fetchUserState(walletAddress);
+        } else if (!connected) {
+            // 断开连接时清除用户状态
+            console.log('👋 钱包已断开，清除用户状态');
+            clearUserState();
+        }
+    }, [connected, publicKey, fetchUserState, clearUserState]);
+
+    // 调试：显示用户状态
+    useEffect(() => {
+        if (userState) {
+            console.log('📊 用户状态已更新:', {
+                address: userState.walletAddress,
+                karmaPoints: userState.karmaPoints,
+                totalIncenseValue: userState.totalIncenseValue,
+                totalBurnCount: userState.totalBurnCount,
+            });
+        }
+    }, [userState]);
+
     const handleConnect = () => {
         console.log('🚀 打开钱包选择模态框...');
         console.log('📱 当前可用钱包数量:', wallets.length);
@@ -109,6 +136,7 @@ export function WalletButton() {
     const handleDisconnect = async () => {
         try {
             await disconnect();
+            // clearUserState 会在 useEffect 中自动调用
         } catch (error) {
             console.error('断开连接失败:', error);
         }

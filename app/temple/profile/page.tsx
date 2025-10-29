@@ -1,115 +1,85 @@
 "use client"
 
+import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { User, Sparkles, Flame, ScrollText, Heart, Award, TrendingUp, Loader2 } from "lucide-react"
 import { MeritBadge } from "@/components/merit-badge"
 import { useWallet } from '@solana/wallet-adapter-react'
-import { useEffect, useState } from 'react'
-import { DrawFortuneContract } from '@/lib/contracts/draw-fortune'
-import { Wallet } from '@coral-xyz/anchor'
-import { Transaction } from '@solana/web3.js'
-
-interface UserStateData {
-  karmaPoints: number;
-  totalIncenseValue: number;
-  totalSolSpent: number;
-  totalDrawCount: number;
-  totalWishCount: number;
-  totalBurnCount: number;
-  donationUnlockedBurns: number;
-  dailyBurnCount: number;
-  dailyDrawCount: number;
-  dailyWishCount: number;
-  createdAt: Date;
-  lastActiveAt: Date;
-}
+import { useUserState } from '@/hooks/use-user-state'
+import { getUserActivities, type UserActivity } from '@/lib/api/temple'
 
 export default function ProfilePage() {
-  const { publicKey, connected, signTransaction, signAllTransactions } = useWallet();
-  const [userState, setUserState] = useState<UserStateData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // 获取用户状态
-  useEffect(() => {
-    async function fetchUserState() {
-      if (!publicKey || !connected || !signTransaction || !signAllTransactions) {
-        setUserState(null);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const walletAdapter = {
-          publicKey,
-          signTransaction: async (tx: Transaction) => {
-            return await signTransaction(tx);
-          },
-          signAllTransactions: async (txs: Transaction[]) => {
-            return await signAllTransactions(txs);
-          },
-        } as Wallet;
-
-        const contract = new DrawFortuneContract(walletAdapter);
-        const state = await contract.getUserState(publicKey);
-
-        console.log('📊 用户状态:', {
-          karmaPoints: state.karmaPoints.toString(),
-          totalIncenseValue: state.totalIncenseValue.toString(),
-          totalSolSpent: state.totalSolSpent.toString(),
-          totalDrawCount: state.totalDrawCount,
-          totalWishCount: state.totalWishCount,
-          totalBurnCount: state.totalBurnCount,
-          donationUnlockedBurns: state.donationUnlockedBurns,
-          dailyBurnCount: state.dailyBurnCount,
-          dailyDrawCount: state.dailyDrawCount,
-          dailyWishCount: state.dailyWishCount,
-          createdAt: new Date(state.createdAt.toNumber() * 1000).toISOString(),
-          lastActiveAt: new Date(state.lastActiveAt.toNumber() * 1000).toISOString(),
-        });
-
-        setUserState({
-          karmaPoints: state.karmaPoints.toNumber(),
-          totalIncenseValue: state.totalIncenseValue.toNumber(),
-          totalSolSpent: state.totalSolSpent.toNumber() / 1e9, // 转换为 SOL
-          totalDrawCount: state.totalDrawCount,
-          totalWishCount: state.totalWishCount,
-          totalBurnCount: state.totalBurnCount,
-          donationUnlockedBurns: state.donationUnlockedBurns,
-          dailyBurnCount: state.dailyBurnCount,
-          dailyDrawCount: state.dailyDrawCount,
-          dailyWishCount: state.dailyWishCount,
-          createdAt: new Date(state.createdAt.toNumber() * 1000),
-          lastActiveAt: new Date(state.lastActiveAt.toNumber() * 1000),
-        });
-      } catch (err: any) {
-        console.error('❌ 获取用户状态失败:', err);
-        setError(err.message || '获取用户状态失败');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchUserState();
-  }, [publicKey, connected, signTransaction, signAllTransactions]);
+  const { publicKey, connected } = useWallet();
+  const { userState, loading, error } = useUserState();
+  const [activities, setActivities] = useState<UserActivity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [activitiesPage, setActivitiesPage] = useState(1);
+  const [activitiesTotal, setActivitiesTotal] = useState(0);
 
   // 格式化钱包地址
   const formatAddress = (address: string) => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
   };
 
-  // 根据功德值计算等级
-  const getRank = (karmaPoints: number): string => {
-    if (karmaPoints >= 10000) return '寺主';
-    if (karmaPoints >= 5000) return '供奉';
-    if (karmaPoints >= 2000) return '信徒';
-    if (karmaPoints >= 500) return '香客';
-    return '初心者';
+  // 格式化 SOL 数量
+  const formatSol = (lamports: number): string => {
+    return (lamports / 1e9).toFixed(4);
   };
+
+  // 获取指令类型的显示信息
+  const getInstructionDisplay = (instructionType: string) => {
+    const instructionMap: Record<string, { label: string; icon: any; color: string }> = {
+      'burn_incense_simplied': { label: '烧香', icon: Flame, color: 'text-orange-500' },
+      'draw_fortune': { label: '求签', icon: ScrollText, color: 'text-purple-500' },
+      'create_wish': { label: '许愿', icon: Heart, color: 'text-pink-500' },
+      'donate_fund': { label: '捐赠', icon: Sparkles, color: 'text-yellow-500' },
+      'like_wish': { label: '点赞心愿', icon: Heart, color: 'text-red-500' },
+      'cancel_like_wish': { label: '取消点赞', icon: Heart, color: 'text-gray-500' },
+      'init_user': { label: '初始化用户', icon: User, color: 'text-blue-500' },
+    };
+    return instructionMap[instructionType] || { label: instructionType, icon: Award, color: 'text-gray-500' };
+  };
+
+  // 格式化时间
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('zh-CN');
+  };
+
+  // 获取用户活动记录
+  useEffect(() => {
+    if (!publicKey) return;
+
+    const fetchActivities = async () => {
+      setActivitiesLoading(true);
+      setActivitiesError(null);
+      try {
+        const result = await getUserActivities(publicKey.toString(), 10, activitiesPage);
+        setActivities(result.activities);
+        setActivitiesTotal(result.total);
+      } catch (err: any) {
+        console.error('获取活动记录失败:', err);
+        setActivitiesError(err.message || '获取活动记录失败');
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, [publicKey, activitiesPage]);
 
   // 加载中状态
   if (loading) {
@@ -165,20 +135,23 @@ export default function ProfilePage() {
     username: `Believer_${publicKey.toString().slice(0, 4)}`,
     walletAddress: formatAddress(publicKey.toString()),
     meritPoints: userState.karmaPoints,
-    rank: getRank(userState.karmaPoints),
+    rank: userState.karmaLevel.name,
+    rankEn: userState.karmaLevel.nameEn,
+    badgeLevel: userState.karmaLevel.badgeLevel,
     joinedDate: userState.createdAt.toLocaleDateString('zh-CN'),
     stats: {
       totalIncenseBurned: userState.totalBurnCount,
       totalFortunesDrawn: userState.totalDrawCount,
       totalWishesMade: userState.totalWishCount,
-      totalDonated: userState.totalSolSpent,
+      totalIncenseValue: userState.totalIncenseValue,
+      totalDonateAmount: userState.totalDonationAmount / 1_000_000_000, // Convert lamports to SOL
     },
   }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       {/* Profile Header */}
-      <Card className="temple-card p-8 mb-8">
+      <Card className="temple-card p-8 mb-8" id="profile-header">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
             <User className="w-10 h-10 text-primary" />
@@ -189,6 +162,10 @@ export default function ProfilePage() {
             <p className="text-sm text-muted-foreground mb-4">{userData.walletAddress}</p>
             <MeritBadge points={userData.meritPoints} rank={userData.rank} />
           </div>
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground">Total Incense Value</p>
+            <p className="text-sm font-semibold">{userData.stats.totalIncenseValue}</p>
+          </div>
 
           <div className="text-right">
             <p className="text-sm text-muted-foreground">Member since</p>
@@ -198,7 +175,7 @@ export default function ProfilePage() {
       </Card>
 
       {/* Stats Grid */}
-      <div className="grid md:grid-cols-4 gap-6 mb-8">
+      <div className="grid md:grid-cols-4 gap-6 mb-8" id="stats-grid">
         <Card className="temple-card p-6 text-center">
           <div className="w-12 h-12 rounded-lg bg-orange-500/10 mx-auto mb-3 flex items-center justify-center">
             <Flame className="w-6 h-6 text-orange-500" />
@@ -230,9 +207,8 @@ export default function ProfilePage() {
           <div className="w-12 h-12 rounded-lg bg-yellow-500/10 mx-auto mb-3 flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-yellow-500" />
           </div>
-          <div className="text-2xl font-bold mb-1">{userData.stats.totalDonated.toFixed(4)} SOL</div>
-          <div className="text-sm text-muted-foreground">Total Spent</div>
-          <div className="text-xs text-muted-foreground mt-1">Incense Value: {userState.totalIncenseValue}</div>
+          <div className="text-2xl font-bold mb-1">{userData.stats.totalDonateAmount.toFixed(4)} SOL</div>
+          <div className="text-sm text-muted-foreground">Total Donate Amount</div>
         </Card>
       </div>
 
@@ -262,34 +238,52 @@ export default function ProfilePage() {
 
         <TabsContent value="activity">
           <Card className="temple-card p-6">
-            <div className="space-y-3">
-              {[
-                { action: "Burned Supreme Incense", merit: "+30", time: "2 hours ago", icon: Flame },
-                { action: "Drew Great Fortune", merit: "+2", time: "1 day ago", icon: ScrollText },
-                { action: "Made a wish", merit: "+1", time: "2 days ago", icon: Heart },
-                { action: "Donated 0.5 SOL", merit: "+1300", time: "3 days ago", icon: Sparkles },
-                { action: "Burned Dragon Incense", merit: "+10", time: "4 days ago", icon: Flame },
-              ].map((activity, i) => {
-                const Icon = activity.icon
-                return (
-                  <div key={i} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-muted-foreground" />
+            {activitiesLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                <p className="text-sm text-muted-foreground">加载活动记录中...</p>
+              </div>
+            ) : activitiesError ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-red-500">{activitiesError}</p>
+              </div>
+            ) : !activities || activities.length === 0 ? (
+              <div className="text-center py-8">
+                <Award className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">暂无活动记录</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activities.map((activity) => {
+                  const display = getInstructionDisplay(activity.instruction_type);
+                  const Icon = display.icon;
+                  return (
+                    <div key={activity.signature} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center ${display.color}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{activity.instruction_tag}</p>
+                          <p className="text-xs text-muted-foreground">{formatTime(activity.created_at)}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{activity.action}</p>
-                        <p className="text-xs text-muted-foreground">{activity.time}</p>
-                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        +{activity.reward_karma_points}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      {activity.merit}
-                    </Badge>
+                  );
+                })}
+                {/* {activities && activitiesTotal > activities.length && (
+                  <div className="text-center pt-4">
+                    <p className="text-xs text-muted-foreground">
+                      显示 {activities.length} / {activitiesTotal} 条记录
+                    </p>
                   </div>
-                )
-              })}
-            </div>
+                )} */}
+              </div>
+            )}
           </Card>
         </TabsContent>
 

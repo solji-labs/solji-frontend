@@ -116,8 +116,10 @@ export interface UserActivity {
   signature: string;
   slot: number;
   instruction_type: string;
+  instruction_tag: string;
   user_address: string;
   created_at: string;
+  reward_karma_points: number;
 }
 
 // ==================== API 函数 ====================

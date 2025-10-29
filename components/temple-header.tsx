@@ -7,9 +7,9 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useI18n } from '@/lib/i18n/context';
+import { useUserState } from '@/hooks/use-user-state';
 import { ChevronDown, Flame } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
 import { LanguageSwitcher } from './language-switcher';
 import { MeritBadge } from './merit-badge';
 import { MobileNav } from './mobile-nav';
@@ -19,8 +19,17 @@ import { WalletButton } from './wallet-button';
 
 export function TempleHeader() {
   const { t } = useI18n();
-  const [meritPoints] = useState(150);
-  const [rank] = useState('香客');
+  const { userState, loading } = useUserState();
+  
+  // 调试：查看用户状态
+  console.log('🏛️ TempleHeader - userState:', userState);
+  console.log('🏛️ TempleHeader - loading:', loading);
+  
+  // 从用户状态获取功德值和等级
+  const meritPoints = userState?.karmaPoints ?? 0;
+  const rank = userState?.karmaLevel?.name ?? '新人';
+  
+  console.log('🏛️ TempleHeader - meritPoints:', meritPoints, 'rank:', rank);
 
   return (
     <header className='fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg'>

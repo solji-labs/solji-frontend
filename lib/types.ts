@@ -1,16 +1,29 @@
 // Core data types for Solji DApp
+ 
 
-export interface User {
-  id: string;
+
+export interface UserState {
   walletAddress: string;
-  username: string;
-  avatar?: string;
-  meritPoints: number;
-  rank: UserRank;
-  createdAt: Date;
-}
+  karmaPoints: number;
+  totalIncenseValue: number;
+  totalDonationAmount: number;
 
-export type UserRank = '居士' | '香客' | '供奉' | '寺主';
+  totalBurnCount: number;
+  totalDrawCount: number;
+  totalWishCount: number;
+  totalDonationCount: number;
+
+
+  dailyBurnCount: number;
+  dailyDrawCount: number;
+  dailyWishCount: number;
+
+  createdAt: Date;
+  lastActiveAt: Date;
+
+  karmaLevel: KarmaLevel;
+  
+}
 
 /**
  * 用户功德值等级系统
@@ -125,15 +138,7 @@ export interface IncenseType {
   image: string;
   dailyLimit: number;
 }
-
-export interface Fortune {
-  id: string;
-  userId: string;
-  level: FortuneLevel;
-  text: string;
-  interpretation?: string;
-  createdAt: Date;
-}
+ 
 
 export type FortuneLevel =
   | '大吉'
@@ -143,37 +148,10 @@ export type FortuneLevel =
   | '末吉'
   | '凶'
   | '大凶';
-
-export interface Wish {
-  id: string;
-  userId: string;
-  content: string;
-  isPublic: boolean;
-  nftMinted: boolean;
-  nftAddress?: string;
-  createdAt: Date;
-}
-
-export interface Donation {
-  id: string;
-  userId: string;
-  amount: number; // in SOL
-  tier: DonationTier;
-  badgeNftAddress?: string;
-  createdAt: Date;
-}
+ 
 
 export type DonationTier = 'bronze' | 'silver' | 'gold' | 'supreme';
-
-export interface TempleStats {
-  level: number;
-  totalIncenseValue: number;
-  totalDonations: number;
-  totalBelievers: number;
-  totalFortunes: number;
-  totalWishes: number;
-  totalInteractions: number;
-}
+ 
 
 export interface NFT {
   id: string;
@@ -205,13 +183,4 @@ export type AmuletType =
   | 'wealth'
   | 'health';
 export type AmuletRarity = 'common' | 'rare' | 'epic' | 'legendary';
-
-export interface BuddhaStatue {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  specialAbility: string;
-  owner: string;
-  isSoulbound: boolean;
-}
+ 
