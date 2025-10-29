@@ -1,3 +1,5 @@
+"use client"
+
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,58 +16,53 @@ import {
   Target,
 } from "lucide-react"
 import { TEMPLE_LEVELS } from "@/lib/constants"
+import { useEffect, useState } from "react"
+import { getTempleLevel, getTempleStats, getDonationLeaderboard } from "@/lib/api"
+import type { TempleLevelResponse, TempleStatsResponse, DonationLeaderboardItem } from "@/lib/api/types"
 
 export default function TempleDashboardPage() {
-  // Mock comprehensive temple data
-  const templeData = {
-    currentLevel: 2,
-    stats: {
-      totalBelievers: 10234,
-      totalIncenseValue: 52341,
-      totalFortunes: 25678,
-      totalWishes: 15432,
-      totalDonations: 234.5,
-      totalInteractions: 93685,
-      dailyActiveUsers: 1234,
-      weeklyGrowth: 15.3,
-    },
-    nextLevel: TEMPLE_LEVELS[2],
-    currentProgress: {
-      incenseValue: 52341,
-      fortunes: 25678,
-      wishes: 15432,
-      donations: 234.5,
-    },
+  const [templeLevel, setTempleLevel] = useState<TempleLevelResponse | null>(null)
+  const [templeStats, setTempleStats] = useState<TempleStatsResponse | null>(null)
+  const [leaderboard, setLeaderboard] = useState<DonationLeaderboardItem[]>([])
+  const [activePeriod, setActivePeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+
+    Promise.all([
+      getTempleLevel(),
+      getTempleStats(),
+      getDonationLeaderboard(activePeriod),
+    ])
+      .then(([level, stats, board]) => {
+        if (!mounted) return
+        setTempleLevel(level)
+        setTempleStats(stats)
+        setLeaderboard(board.leaderboard || [])
+      })
+      .catch((e) => console.error('Failed to load dashboard data:', e))
+      .finally(() => { if (mounted) setLoading(false) })
+
+    return () => { mounted = false }
+  }, [])
+
+  const handlePeriodChange = async (period: 'daily' | 'weekly' | 'monthly') => {
+    setActivePeriod(period)
+    try {
+      const board = await getDonationLeaderboard(period)
+      setLeaderboard(board.leaderboard || [])
+    } catch (e) {
+      console.error('Failed to load leaderboard:', e)
+    }
   }
 
   const calculateProgress = (current: number, required: number) => {
     return Math.min((current / required) * 100, 100)
   }
 
-  // Leaderboard data
-  const dailyLeaders = [
-    { rank: 1, user: "0x1a2b...3c4d", merit: 450, badge: "Supreme", avatar: "🏆" },
-    { rank: 2, user: "0x5e6f...7g8h", merit: 380, badge: "Gold", avatar: "🥈" },
-    { rank: 3, user: "0x9i0j...1k2l", merit: 320, badge: "Gold", avatar: "🥉" },
-    { rank: 4, user: "0x3m4n...5o6p", merit: 280, badge: "Silver", avatar: "⭐" },
-    { rank: 5, user: "0x7q8r...9s0t", merit: 245, badge: "Silver", avatar: "⭐" },
-  ]
-
-  const weeklyLeaders = [
-    { rank: 1, user: "0x2b3c...4d5e", merit: 2850, badge: "Supreme", avatar: "🏆" },
-    { rank: 2, user: "0x6f7g...8h9i", merit: 2340, badge: "Gold", avatar: "🥈" },
-    { rank: 3, user: "0x0j1k...2l3m", merit: 1980, badge: "Gold", avatar: "🥉" },
-    { rank: 4, user: "0x4n5o...6p7q", merit: 1650, badge: "Silver", avatar: "⭐" },
-    { rank: 5, user: "0x8r9s...0t1u", merit: 1420, badge: "Silver", avatar: "⭐" },
-  ]
-
-  const monthlyLeaders = [
-    { rank: 1, user: "0x1a2b...3c4d", merit: 15420, badge: "Supreme", avatar: "🏆" },
-    { rank: 2, user: "0x5e6f...7g8h", merit: 12350, badge: "Gold", avatar: "🥈" },
-    { rank: 3, user: "0x9i0j...1k2l", merit: 9870, badge: "Gold", avatar: "🥉" },
-    { rank: 4, user: "0x3m4n...5o6p", merit: 7650, badge: "Silver", avatar: "⭐" },
-    { rank: 5, user: "0x7q8r...9s0t", merit: 6420, badge: "Silver", avatar: "⭐" },
-  ]
+  const shortKey = (k: string) => (k ? `${k.slice(0, 4)}...${k.slice(-4)}` : '')
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -83,10 +80,10 @@ export default function TempleDashboardPage() {
           </div>
           <div>
             <h2 className="text-3xl font-bold">
-              {TEMPLE_LEVELS[templeData.currentLevel - 1].name}{" "}
-              <span className="text-muted-foreground text-xl">Lv.{templeData.currentLevel}</span>
+              {templeLevel?.level_name || '——'}{" "}
+              <span className="text-muted-foreground text-xl">Lv.{templeLevel?.current_level || '-'}</span>
             </h2>
-            <p className="text-muted-foreground">{TEMPLE_LEVELS[templeData.currentLevel - 1].nameEn}</p>
+            <p className="text-muted-foreground">{templeLevel?.level_name_en || ''}</p>
           </div>
         </div>
 
@@ -94,9 +91,9 @@ export default function TempleDashboardPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">
-              Next Evolution: {templeData.nextLevel.name} ({templeData.nextLevel.nameEn})
+              Next Evolution: {templeLevel?.next_level_requirements?.level_name || '—'} ({templeLevel?.next_level_requirements?.level_name_en || ''})
             </h3>
-            <span className="text-sm text-muted-foreground">Level {templeData.nextLevel.level}</span>
+            <span className="text-sm text-muted-foreground">Level {templeLevel?.next_level_requirements?.level || '-'}</span>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -109,21 +106,21 @@ export default function TempleDashboardPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {templeData.currentProgress.incenseValue.toLocaleString()} /{" "}
-                    {templeData.nextLevel.requirements.incenseValue.toLocaleString()}
+                    {(templeStats?.total_incense_value || 0).toLocaleString()} /{" "}
+                    {(templeLevel?.next_level_requirements?.requirements?.incense_points || 0).toLocaleString()}
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
-                      templeData.currentProgress.incenseValue,
-                      templeData.nextLevel.requirements.incenseValue,
+                      templeStats?.total_incense_value || 0,
+                      templeLevel?.next_level_requirements?.requirements?.incense_points || 1,
                     ).toFixed(1)}
                     %
                   </span>
                 </div>
                 <Progress
                   value={calculateProgress(
-                    templeData.currentProgress.incenseValue,
-                    templeData.nextLevel.requirements.incenseValue,
+                    templeStats?.total_incense_value || 0,
+                    templeLevel?.next_level_requirements?.requirements?.incense_points || 1,
                   )}
                   className="h-3"
                 />
@@ -139,21 +136,21 @@ export default function TempleDashboardPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {templeData.currentProgress.fortunes.toLocaleString()} /{" "}
-                    {templeData.nextLevel.requirements.fortunes.toLocaleString()}
+                    {(templeStats?.total_fortunes || 0).toLocaleString()} /{" "}
+                    {(templeLevel?.next_level_requirements?.requirements?.draw_fortune || 0).toLocaleString()}
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
-                      templeData.currentProgress.fortunes,
-                      templeData.nextLevel.requirements.fortunes,
+                      templeStats?.total_fortunes || 0,
+                      templeLevel?.next_level_requirements?.requirements?.draw_fortune || 1,
                     ).toFixed(1)}
                     %
                   </span>
                 </div>
                 <Progress
                   value={calculateProgress(
-                    templeData.currentProgress.fortunes,
-                    templeData.nextLevel.requirements.fortunes,
+                    templeStats?.total_fortunes || 0,
+                    templeLevel?.next_level_requirements?.requirements?.draw_fortune || 1,
                   )}
                   className="h-3"
                 />
@@ -169,19 +166,19 @@ export default function TempleDashboardPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {templeData.currentProgress.wishes.toLocaleString()} /{" "}
-                    {templeData.nextLevel.requirements.wishes.toLocaleString()}
+                    {(templeStats?.total_wishes || 0).toLocaleString()} /{" "}
+                    {(templeLevel?.next_level_requirements?.requirements?.wishes || 0).toLocaleString()}
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
-                      templeData.currentProgress.wishes,
-                      templeData.nextLevel.requirements.wishes,
+                      templeStats?.total_wishes || 0,
+                      templeLevel?.next_level_requirements?.requirements?.wishes || 1,
                     ).toFixed(1)}
                     %
                   </span>
                 </div>
                 <Progress
-                  value={calculateProgress(templeData.currentProgress.wishes, templeData.nextLevel.requirements.wishes)}
+                  value={calculateProgress(templeStats?.total_wishes || 0, templeLevel?.next_level_requirements?.requirements?.wishes || 1)}
                   className="h-3"
                 />
               </div>
@@ -196,21 +193,21 @@ export default function TempleDashboardPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {templeData.currentProgress.donations.toFixed(1)} SOL /{" "}
-                    {templeData.nextLevel.requirements.donations} SOL
+                    {(templeStats?.total_donations || 0).toFixed(1)} SOL /{" "}
+                    {(templeLevel?.next_level_requirements?.requirements?.donations_sol || 0)} SOL
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
-                      templeData.currentProgress.donations,
-                      templeData.nextLevel.requirements.donations,
+                      templeStats?.total_donations || 0,
+                      templeLevel?.next_level_requirements?.requirements?.donations_sol || 1,
                     ).toFixed(1)}
                     %
                   </span>
                 </div>
                 <Progress
                   value={calculateProgress(
-                    templeData.currentProgress.donations,
-                    templeData.nextLevel.requirements.donations,
+                    templeStats?.total_donations || 0,
+                    templeLevel?.next_level_requirements?.requirements?.donations_sol || 1,
                   )}
                   className="h-3"
                 />
@@ -228,9 +225,9 @@ export default function TempleDashboardPage() {
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold">{templeData.stats.totalBelievers.toLocaleString()}</p>
+            <p className="text-3xl font-bold">{(templeStats?.total_believers || 0).toLocaleString()}</p>
             <p className="text-sm text-muted-foreground">Total Believers</p>
-            <p className="text-xs text-green-500">+{templeData.stats.weeklyGrowth}% this week</p>
+            <p className="text-xs text-green-500">Active community</p>
           </div>
         </Card>
 
@@ -240,9 +237,9 @@ export default function TempleDashboardPage() {
             <Calendar className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold">{templeData.stats.dailyActiveUsers.toLocaleString()}</p>
-            <p className="text-sm text-muted-foreground">Daily Active Users</p>
-            <p className="text-xs text-muted-foreground">Last 24 hours</p>
+            <p className="text-3xl font-bold">{(templeStats?.total_fortunes || 0).toLocaleString()}</p>
+            <p className="text-sm text-muted-foreground">Total Fortunes</p>
+            <p className="text-xs text-muted-foreground">Divinations drawn</p>
           </div>
         </Card>
 
@@ -252,7 +249,7 @@ export default function TempleDashboardPage() {
             <Sparkles className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold">{templeData.stats.totalInteractions.toLocaleString()}</p>
+            <p className="text-3xl font-bold">{(templeStats?.total_interactions || 0).toLocaleString()}</p>
             <p className="text-sm text-muted-foreground">Total Interactions</p>
             <p className="text-xs text-muted-foreground">All activities combined</p>
           </div>
@@ -264,7 +261,7 @@ export default function TempleDashboardPage() {
             <Trophy className="w-5 h-5 text-muted-foreground" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold">{templeData.stats.totalDonations.toFixed(1)} SOL</p>
+            <p className="text-3xl font-bold">{(templeStats?.total_donations || 0).toFixed(1)} SOL</p>
             <p className="text-sm text-muted-foreground">Total Donations</p>
             <p className="text-xs text-muted-foreground">Community contributions</p>
           </div>
@@ -278,7 +275,7 @@ export default function TempleDashboardPage() {
           <h2 className="text-2xl font-bold">Community Leaderboards</h2>
         </div>
 
-        <Tabs defaultValue="daily" className="w-full">
+        <Tabs value={activePeriod} onValueChange={(v) => handlePeriodChange(v as 'daily' | 'weekly' | 'monthly')} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="daily">Daily</TabsTrigger>
             <TabsTrigger value="weekly">Weekly</TabsTrigger>
@@ -286,99 +283,96 @@ export default function TempleDashboardPage() {
           </TabsList>
 
           <TabsContent value="daily" className="space-y-4">
-            {dailyLeaders.map((leader) => (
+            {leaderboard.map((leader) => (
               <div
                 key={leader.rank}
                 className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border hover:bg-card/80 transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                      leader.rank === 1
-                        ? "bg-yellow-500/20"
-                        : leader.rank === 2
-                          ? "bg-gray-400/20"
-                          : leader.rank === 3
-                            ? "bg-orange-500/20"
-                            : "bg-primary/10"
-                    }`}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${leader.rank === 1
+                      ? "bg-yellow-500/20"
+                      : leader.rank === 2
+                        ? "bg-gray-400/20"
+                        : leader.rank === 3
+                          ? "bg-orange-500/20"
+                          : "bg-primary/10"
+                      }`}
                   >
-                    {leader.avatar}
+                    {leader.rank === 1 ? "🏆" : leader.rank === 2 ? "🥈" : leader.rank === 3 ? "🥉" : "⭐"}
                   </div>
                   <div>
-                    <p className="font-semibold">{leader.user}</p>
-                    <p className="text-sm text-muted-foreground">{leader.badge} Badge</p>
+                    <p className="font-semibold">{shortKey(leader.user_pubkey)}</p>
+                    <p className="text-sm text-muted-foreground">Donated</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">{leader.merit}</p>
-                  <p className="text-xs text-muted-foreground">merit points</p>
+                  <p className="text-2xl font-bold text-primary">{leader.total_donated} SOL</p>
+                  <p className="text-xs text-muted-foreground">total donated</p>
                 </div>
               </div>
             ))}
           </TabsContent>
 
           <TabsContent value="weekly" className="space-y-4">
-            {weeklyLeaders.map((leader) => (
+            {leaderboard.map((leader) => (
               <div
                 key={leader.rank}
                 className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border hover:bg-card/80 transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                      leader.rank === 1
-                        ? "bg-yellow-500/20"
-                        : leader.rank === 2
-                          ? "bg-gray-400/20"
-                          : leader.rank === 3
-                            ? "bg-orange-500/20"
-                            : "bg-primary/10"
-                    }`}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${leader.rank === 1
+                      ? "bg-yellow-500/20"
+                      : leader.rank === 2
+                        ? "bg-gray-400/20"
+                        : leader.rank === 3
+                          ? "bg-orange-500/20"
+                          : "bg-primary/10"
+                      }`}
                   >
-                    {leader.avatar}
+                    {leader.rank === 1 ? "🏆" : leader.rank === 2 ? "🥈" : leader.rank === 3 ? "🥉" : "⭐"}
                   </div>
                   <div>
-                    <p className="font-semibold">{leader.user}</p>
-                    <p className="text-sm text-muted-foreground">{leader.badge} Badge</p>
+                    <p className="font-semibold">{shortKey(leader.user_pubkey)}</p>
+                    <p className="text-sm text-muted-foreground">Donated</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">{leader.merit}</p>
-                  <p className="text-xs text-muted-foreground">merit points</p>
+                  <p className="text-2xl font-bold text-primary">{leader.total_donated} SOL</p>
+                  <p className="text-xs text-muted-foreground">total donated</p>
                 </div>
               </div>
             ))}
           </TabsContent>
 
           <TabsContent value="monthly" className="space-y-4">
-            {monthlyLeaders.map((leader) => (
+            {leaderboard.map((leader) => (
               <div
                 key={leader.rank}
                 className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border hover:bg-card/80 transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                      leader.rank === 1
-                        ? "bg-yellow-500/20"
-                        : leader.rank === 2
-                          ? "bg-gray-400/20"
-                          : leader.rank === 3
-                            ? "bg-orange-500/20"
-                            : "bg-primary/10"
-                    }`}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${leader.rank === 1
+                      ? "bg-yellow-500/20"
+                      : leader.rank === 2
+                        ? "bg-gray-400/20"
+                        : leader.rank === 3
+                          ? "bg-orange-500/20"
+                          : "bg-primary/10"
+                      }`}
                   >
-                    {leader.avatar}
+                    {leader.rank === 1 ? "🏆" : leader.rank === 2 ? "🥈" : leader.rank === 3 ? "🥉" : "⭐"}
                   </div>
                   <div>
-                    <p className="font-semibold">{leader.user}</p>
-                    <p className="text-sm text-muted-foreground">{leader.badge} Badge</p>
+                    <p className="font-semibold">{shortKey(leader.user_pubkey)}</p>
+                    <p className="text-sm text-muted-foreground">Donated</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-primary">{leader.merit}</p>
-                  <p className="text-xs text-muted-foreground">merit points</p>
+                  <p className="text-2xl font-bold text-primary">{leader.total_donated} SOL</p>
+                  <p className="text-xs text-muted-foreground">total donated</p>
                 </div>
               </div>
             ))}

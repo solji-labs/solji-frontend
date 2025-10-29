@@ -16,7 +16,9 @@ import {
   Sparkles,
   Zap
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getHonorWall } from '@/lib/api';
+import type { HonorWallEntry } from '@/lib/api/types';
 import { useDonateFund } from '@/hooks/use-donate-fund';
 import { useWalletInfo } from '@/hooks/use-wallet';
 
@@ -46,6 +48,16 @@ export default function DonatePage() {
   const [customAmount, setCustomAmount] = useState('');
   const [donating, setDonating] = useState(false);
   const [donated, setDonated] = useState(false);
+  const [honorEntries, setHonorEntries] = useState<HonorWallEntry[]>([]);
+  const shortKey = (k: string) => (k ? `${k.slice(0, 4)}...${k.slice(-4)}` : '');
+
+  useEffect(() => {
+    let mounted = true;
+    getHonorWall()
+      .then((res) => { if (mounted) setHonorEntries(res.entries || []); })
+      .catch(() => { })
+    return () => { mounted = false };
+  }, []);
   const { donate } = useDonateFund();
   const { connected } = useWalletInfo();
 
@@ -291,66 +303,30 @@ export default function DonatePage() {
       <div className='mt-12'>
         <h2 className='text-2xl font-bold mb-6'>Honor Wall</h2>
         <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-4'>
-          {[
-            {
-              user: '0x1a2b...3c4d',
-              amount: 5.5,
-              tier: 'supreme',
-              date: '2025-01-05'
-            },
-            {
-              user: '0x5e6f...7g8h',
-              amount: 2.3,
-              tier: 'gold',
-              date: '2025-01-05'
-            },
-            {
-              user: '0x9i0j...1k2l',
-              amount: 1.8,
-              tier: 'gold',
-              date: '2025-01-04'
-            },
-            {
-              user: '0x3m4n...5o6p',
-              amount: 0.5,
-              tier: 'silver',
-              date: '2025-01-04'
-            },
-            {
-              user: '0x7q8r...9s0t',
-              amount: 0.3,
-              tier: 'silver',
-              date: '2025-01-03'
-            },
-            {
-              user: '0x1u2v...3w4x',
-              amount: 0.1,
-              tier: 'bronze',
-              date: '2025-01-03'
-            }
-          ].map((donation, i) => {
-            const Icon = TIER_ICONS[donation.tier as DonationTier];
+          {honorEntries.map((entry, i) => {
+            const tier = (entry.tier || 'bronze') as DonationTier;
+            const Icon = TIER_ICONS[tier];
             return (
               <Card key={i} className='temple-card p-4'>
                 <div className='flex items-center gap-3'>
                   <div
-                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${TIER_COLORS[donation.tier as DonationTier]
+                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${TIER_COLORS[tier]
                       } flex items-center justify-center flex-shrink-0`}>
                     <Icon
-                      className={`w-5 h-5 ${TIER_TEXT_COLORS[donation.tier as DonationTier]
+                      className={`w-5 h-5 ${TIER_TEXT_COLORS[tier]
                         }`}
                     />
                   </div>
                   <div className='flex-1 min-w-0'>
                     <p className='text-sm font-semibold truncate'>
-                      {donation.user}
+                      {shortKey(entry.user_pubkey)}
                     </p>
                     <p className='text-xs text-muted-foreground'>
-                      {donation.amount} SOL • {donation.date}
+                      {entry.total_donated} SOL
                     </p>
                   </div>
                   <Badge variant='secondary' className='text-xs'>
-                    {DONATION_TIERS[donation.tier as DonationTier].badge}
+                    {DONATION_TIERS[tier].badge}
                   </Badge>
                 </div>
               </Card>
