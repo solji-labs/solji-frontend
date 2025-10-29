@@ -114,3 +114,41 @@ export interface WishesResponse {
     };
 }
 
+export interface ProfileStats {
+    total_incense_burned: number;
+    total_fortunes_drawn: number;
+    total_wishes_made: number;
+    total_donated_sol: number;
+}
+
+export interface ProfileNftCounts {
+    amulet_count: number;
+    fortune_nft_count: number;
+    buddha_nft_count: number;
+}
+
+export interface ProfileActivityItem {
+    activity_type: string;
+    description: string;
+    merit_gained: number;
+    created_at: string;
+}
+
+export interface ProfileAchievementItem {
+    title: string;
+    description: string;
+    unlocked: boolean;
+    unlocked_at?: string;
+}
+
+export interface ProfileResponse {
+    user_pubkey: string;
+    merit_points: number;
+    incense_points: number;
+    rank: string;
+    joined_date: string;
+    stats: ProfileStats;
+    nfts: ProfileNftCounts;
+    recent_activity: ProfileActivityItem[];
+    achievements: ProfileAchievementItem[];
+}
