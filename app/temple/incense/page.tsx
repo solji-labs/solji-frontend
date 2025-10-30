@@ -222,7 +222,7 @@ export default function IncensePage() {
         const nextEntry: OwnedIncenseNft = {
           id: entryId,
           serial: nextSerial,
-          incenseId: incense.id,
+          incenseId: incense.id as IncenseId,
           name: incense.name,
           nameEn: incense.nameEn,
           meritPoints: result.meritPointsEarned ?? incense.meritPoints,

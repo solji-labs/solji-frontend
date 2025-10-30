@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useCreateWish } from '@/hooks/use-create-wish';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
-import { getWishes } from '@/lib/api';
+import { getWishes, likeWish, ipfsUpload } from '@/lib/api';
 import type { WishItem } from '@/lib/api/types';
 
 const mockMyWishes: WishItem[] = [
@@ -58,16 +58,20 @@ export default function WishesPage() {
   const { createWish, isLoading, error, clearError } = useCreateWish();
   const userPubkey = publicKey?.toBase58();
 
+  // 点赞loading状态，用wishId作为key
+  const [liking, setLiking] = useState<number | null>(null);
+  const [ipfsLoading, setIpfsLoading] = useState(false);
+
   // 加载许愿墙数据
   const loadWishes = async () => {
     setWishesLoading(true);
     try {
-      const response = await getWishes();
+      const response = await getWishes(publicKey?.toString());
       setWishes(response.wishes);
       setTotalWishesCount(response.pagination.count);
     } catch (error) {
       console.error('Failed to load wishes:', error);
-      toast.error('加载许愿墙失败');
+      toast.error('failed to load wishes');
     } finally {
       setWishesLoading(false);
     }
@@ -97,37 +101,44 @@ export default function WishesPage() {
       toast.error('请先连接钱包');
       return;
     }
-
     try {
-      console.log('[solji] Submitting wish:', { text: wishText, isPublic });
-
-      // 生成内容哈希 (简化版本，实际应该上传到IPFS)
-      const contentHash = Array.from({ length: 32 }, (_, i) =>
-        wishText.charCodeAt(i % wishText.length) % 256
-      );
-
+      setIpfsLoading(true);
+      const ipfs = await ipfsUpload(wishText.trim());
+      setIpfsLoading(false);
+      // 将 ipfs.hash 编码为32字节数组，满足合约要求
+      const encoder = new TextEncoder();
+      const hashBytes = encoder.encode(ipfs.hash);
+      const contentHash = Array.from({ length: 32 }, (_, i) => hashBytes[i] ?? 0);
+      // 合约调用loading由isLoading（useCreateWish）管理
       const result = await createWish({
         contentHash,
         isAnonymous: !isPublic
       });
-
-      console.log('[solji] Wish submitted successfully:', result);
-
-      toast.success(`许愿成功！获得 ${result.wishId} 号许愿NFT`);
-
+      console.log('[solji] Wish submitted successfully:', result, ipfs);
+      toast.success(`wish submitted successfully! get ${result.wishId} wish NFT`);
       if (result.amuletDropped) {
-        toast.success('恭喜！获得了护符！');
+        toast.success('congratulations! you got amulet!');
       }
-
       setWishesCount(wishesCount + 1);
       setWishText('');
-
-      // 许愿成功后刷新许愿墙
       await loadWishes();
-
     } catch (err: any) {
+      setIpfsLoading(false);
       console.error('[solji] Wish submission failed:', err);
-      toast.error(err.message || '许愿失败');
+      toast.error(err.message || 'wish submission failed');
+    }
+  };
+
+  const handleLikeWish = async (wishId: number) => {
+    if (liking) return;
+    setLiking(wishId);
+    try {
+      await likeWish(wishId, publicKey?.toString());
+      await loadWishes();
+    } catch (e) {
+      toast.error('like failed');
+    } finally {
+      setLiking(null);
     }
   };
 
@@ -137,14 +148,14 @@ export default function WishesPage() {
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
 
-    if (diffInMinutes < 1) return '刚刚';
-    if (diffInMinutes < 60) return `${diffInMinutes} 分钟前`;
+    if (diffInMinutes < 1) return 'just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
 
     const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} 小时前`;
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
 
     const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays} 天前`;
+    return `${diffInDays} days ago`;
   };
 
   const isSameDay = (dateString: string, referenceDate: Date) => {
@@ -290,13 +301,13 @@ export default function WishesPage() {
               {/* Submit Button */}
               <Button
                 onClick={handleSubmitWish}
-                disabled={!wishText.trim() || isLoading || !connected}
+                disabled={!wishText.trim() || isLoading || !connected || ipfsLoading}
                 className='w-full'
                 size='lg'>
-                {isLoading ? (
+                {(ipfsLoading || isLoading) ? (
                   <>
                     <Heart className='w-5 h-5 mr-2 animate-pulse' />
-                    Minting Wish NFT...
+                    {ipfsLoading ? 'Uploading to IPFS...' : 'Minting Wish NFT...'}
                   </>
                 ) : !connected ? (
                   <>
@@ -385,10 +396,19 @@ export default function WishesPage() {
                       <p className='text-sm leading-relaxed truncate'>{wish.content}</p>
                       <div className='flex items-center justify-between pt-2'>
                         <div className='flex items-center gap-2'>
-                          <Heart className='w-4 h-4 text-pink-500' />
-                          <span className='text-xs text-muted-foreground'>
-                            {wish.likes} likes
-                          </span>
+                          <button
+                            disabled={liking === wish.wish_id || wishesLoading || wish.is_liked}
+                            onClick={() => { if (!wish.is_liked) handleLikeWish(wish.wish_id); }}
+                            className={`group flex items-center px-2 py-1 rounded transition-colors ${(liking === wish.wish_id || wish.is_liked) ? 'opacity-70 pointer-events-none' : ''}`}
+                            aria-label='like'
+                            aria-disabled={wish.is_liked}
+                          >
+                            <Heart
+                              className={`w-4 h-4 ${(liking === wish.wish_id) ? 'animate-pulse text-pink-500' : 'text-pink-500 group-hover:scale-110'}`}
+                              fill={wish.is_liked ? 'currentColor' : 'none'}
+                            />
+                            <span className='ml-1 text-xs text-muted-foreground'>{wish.likes} likes</span>
+                          </button>
                         </div>
                         <Badge variant='secondary' className='text-xs'>
                           <Share2 className='w-3 h-3 mr-1' />
