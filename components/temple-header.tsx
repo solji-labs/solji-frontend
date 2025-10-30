@@ -9,17 +9,49 @@ import {
 import { useI18n } from '@/lib/i18n/context';
 import { ChevronDown, Flame } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LanguageSwitcher } from './language-switcher';
 import { MeritBadge } from './merit-badge';
 import { MobileNav } from './mobile-nav';
 import { ThemeToggle } from './theme-toggle';
 import { WalletButton } from './wallet-button';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { getProfileBasic } from '@/lib/api';
+import { RefreshCw } from 'lucide-react';
 
 export function TempleHeader() {
   const { t } = useI18n();
-  const [meritPoints] = useState(150);
-  const [rank] = useState('香客');
+  const { publicKey, connected } = useWallet();
+  const [meritPoints, setMeritPoints] = useState<number | null>(null);
+  const [rank, setRank] = useState<string | null>(null);
+  const [meritLoading, setMeritLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!connected || !publicKey) {
+        setMeritPoints(null);
+        setRank(null);
+        setMeritLoading(false);
+        return;
+      }
+      setMeritLoading(true);
+      try {
+        const basic = await getProfileBasic(publicKey.toString());
+        if (cancelled) return;
+        setMeritPoints(basic.merit_points ?? 0);
+        setRank(basic.rank ?? '—');
+      } catch (_) {
+        if (cancelled) return;
+        setMeritPoints(null);
+        setRank(null);
+      } finally {
+        if (!cancelled) setMeritLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [connected, publicKey]);
 
   return (
     <header className='fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg'>
@@ -67,7 +99,7 @@ export function TempleHeader() {
             className='text-sm hover:text-primary transition-colors'>
             {t.nav.dashboard}
           </Link>
-          <Link
+          {/* <Link
             href='/temple/collection'
             className='text-sm hover:text-primary transition-colors'>
             {t.nav.collection}
@@ -76,7 +108,7 @@ export function TempleHeader() {
             href='/temple/buddha'
             className='text-sm hover:text-primary transition-colors'>
             {t.nav.buddha}
-          </Link>
+          </Link> */}
           <Link
             href='/temple/profile'
             className='text-sm hover:text-primary transition-colors'>
@@ -85,11 +117,19 @@ export function TempleHeader() {
         </nav>
 
         <div className='flex items-center gap-2'>
-          <MeritBadge
-            points={meritPoints}
-            rank={rank}
-            className='hidden lg:flex'
-          />
+          {connected ? (
+            meritLoading ? (
+              <div className='hidden lg:flex items-center justify-center w-[120px] h-8 rounded-md border border-border/50'>
+                <RefreshCw className='w-4 h-4 animate-spin text-muted-foreground' />
+              </div>
+            ) : meritPoints !== null && rank ? (
+              <MeritBadge
+                points={meritPoints}
+                rank={rank}
+                className='hidden lg:flex'
+              />
+            ) : null
+          ) : null}
           <ThemeToggle />
           <LanguageSwitcher />
           <WalletButton />

@@ -103,6 +103,7 @@ export interface WishItem {
     likes: number;
     created_at: string;
     updated_at: string;
+    is_liked: boolean;
 }
 
 export interface WishesResponse {
@@ -151,4 +152,44 @@ export interface ProfileResponse {
     nfts: ProfileNftCounts;
     recent_activity: ProfileActivityItem[];
     achievements: ProfileAchievementItem[];
+}
+
+export interface ProfileBasicResponse {
+    incense_points: number;
+    joined_date: string;
+    merit_points: number;
+    rank: string;
+    stats: {
+        total_donated_sol: number;
+        total_fortunes_drawn: number;
+        total_incense_burned: number;
+        total_wishes_made: number;
+    };
+    user_pubkey: string;
+}
+
+export interface ProfileNftsResponse {
+    nfts: {
+        amulet_count: number;
+        buddha_nft_count: number;
+        fortune_nft_count: number;
+    };
+}
+
+export interface ProfileActivitiesResponse {
+    activities: Array<{
+        activity_type: string;
+        created_at: string;
+        description: string;
+        merit_gained: number;
+    }>;
+}
+
+export interface ProfileAchievementsResponse {
+    achievements: Array<{
+        description: string;
+        title: string;
+        unlocked: boolean;
+        unlocked_at: string | null;
+    }>;
 }
