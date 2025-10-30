@@ -14,17 +14,49 @@ import { toast } from 'sonner';
 import { getWishes } from '@/lib/api';
 import type { WishItem } from '@/lib/api/types';
 
+const mockMyWishes: WishItem[] = [
+  {
+    id: 9001,
+    wish_id: 108,
+    content: 'Wishing my family good health, peace, and joyful news all year.',
+    user_pubkey: 'DemoUser1111AAAA',
+    likes: 42,
+    created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    updated_at: new Date(Date.now() - 1000 * 60 * 80).toISOString()
+  },
+  {
+    id: 9002,
+    wish_id: 256,
+    content:
+      'Hoping our startup launches smoothly this year and the whole team finds their shine.',
+    user_pubkey: 'DemoUser2222BBBB',
+    likes: 37,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString()
+  },
+  {
+    id: 9003,
+    wish_id: 512,
+    content: 'May the world see less conflict and more warmth and understanding.',
+    user_pubkey: 'DemoUser3333CCCC',
+    likes: 58,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString()
+  }
+];
+
 export default function WishesPage() {
   const [wishText, setWishText] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-  const [wishesCount, setWishesCount] = useState(1);
+  const [wishesCount, setWishesCount] = useState(0);
   const [wishes, setWishes] = useState<WishItem[]>([]);
   const [wishesLoading, setWishesLoading] = useState(false);
   const [totalWishesCount, setTotalWishesCount] = useState(0);
   const maxFreeWishes = 3;
 
-  const { wallet, connected } = useWallet();
+  const { wallet, connected, publicKey } = useWallet();
   const { createWish, isLoading, error, clearError } = useCreateWish();
+  const userPubkey = publicKey?.toBase58();
 
   // 加载许愿墙数据
   const loadWishes = async () => {
@@ -46,6 +78,19 @@ export default function WishesPage() {
     loadWishes();
   }, []);
 
+  useEffect(() => {
+    if (!userPubkey) {
+      setWishesCount(0);
+      return;
+    }
+
+    const today = new Date();
+    const todaysWishes = wishes.filter(
+      (wish) =>
+        wish.user_pubkey === userPubkey && isSameDay(wish.created_at, today)
+    );
+    setWishesCount(todaysWishes.length);
+  }, [userPubkey, wishes]);
   const handleSubmitWish = async () => {
     if (!wishText.trim()) return;
     if (!connected) {
@@ -102,10 +147,34 @@ export default function WishesPage() {
     return `${diffInDays} 天前`;
   };
 
+  const isSameDay = (dateString: string, referenceDate: Date) => {
+    const date = new Date(dateString);
+    return (
+      date.getFullYear() === referenceDate.getFullYear() &&
+      date.getMonth() === referenceDate.getMonth() &&
+      date.getDate() === referenceDate.getDate()
+    );
+  };
+
   // 缩短用户公钥显示
   const shortKey = (pubkey: string) => {
     return pubkey ? `${pubkey.slice(0, 4)}...${pubkey.slice(-4)}` : '';
   };
+
+  const hasWallet = connected && Boolean(userPubkey);
+  const myWishes = hasWallet
+    ? wishes.filter((wish) => wish.user_pubkey === userPubkey)
+    : [];
+  const sortedMyWishes = hasWallet
+    ? [...myWishes].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+    : [];
+  const hasUserWishes = sortedMyWishes.length > 0;
+  const displayMyWishes = hasUserWishes ? sortedMyWishes : mockMyWishes;
+  const showConnectNotice = !hasWallet;
+  const showMockNotice = !hasUserWishes;
 
   const remainingFreeWishes = Math.max(0, maxFreeWishes - wishesCount);
   const characterCount = wishText.length;
@@ -344,19 +413,51 @@ export default function WishesPage() {
       {/* My Wishes */}
       <div className='mt-12'>
         <h2 className='text-2xl font-bold mb-6'>My Wishes</h2>
-        <Card className='temple-card p-8 text-center'>
-          <div className='max-w-md mx-auto space-y-4'>
-            <div className='w-16 h-16 rounded-full bg-muted mx-auto flex items-center justify-center'>
-              <Heart className='w-8 h-8 text-muted-foreground' />
+        <Card className='temple-card p-8'>
+          {wishesLoading && hasWallet ? (
+            <div className='flex items-center justify-center gap-2 text-muted-foreground'>
+              <RefreshCw className='w-5 h-5 animate-spin' />
+              <span className='text-sm'>Loading your wishes...</span>
             </div>
-            <div>
-              <h3 className='text-lg font-semibold mb-2'>No Wishes Yet</h3>
-              <p className='text-sm text-muted-foreground leading-relaxed'>
-                Make your first wish to start your collection of Ema plaque
-                NFTs.
-              </p>
+          ) : (
+            <div className='space-y-4'>
+              {showConnectNotice && (
+                <div className='text-center text-sm text-muted-foreground'>
+                  Connect your wallet to view your on-chain wishes. Showing demo
+                  wishes below.
+                </div>
+              )}
+              {!showConnectNotice && showMockNotice && (
+                <div className='text-center text-sm text-muted-foreground'>
+                  You have not minted any wishes yet. Showing demo wishes for
+                  preview.
+                </div>
+              )}
+              {displayMyWishes.map((wish) => (
+                <div
+                  key={`${wish.id}-${wish.created_at}`}
+                  className='rounded-lg border border-border/50 bg-muted/30 p-4'>
+                  <div className='flex items-start justify-between gap-4'>
+                    <div className='space-y-2'>
+                      <p className='text-sm leading-relaxed whitespace-pre-wrap break-words'>
+                        {wish.content}
+                      </p>
+                      <div className='flex items-center gap-3 text-xs text-muted-foreground'>
+                        <span>Minted {formatTimeAgo(wish.created_at)}</span>
+                        <span className='flex items-center gap-1'>
+                          <Heart className='w-3 h-3 text-pink-500' />
+                          {wish.likes} likes
+                        </span>
+                      </div>
+                    </div>
+                    <Badge variant='secondary' className='shrink-0'>
+                      #{wish.wish_id}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
         </Card>
       </div>
     </div>
