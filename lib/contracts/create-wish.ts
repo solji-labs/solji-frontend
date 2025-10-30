@@ -262,34 +262,19 @@ export function generateContentHash(content: string): number[] {
 
 /**
  * 辅助函数：生成内容哈希（异步）
- * TODO: 后续集成真正的 SHA-256 哈希（使用 crypto.subtle.digest 或 js-sha256 库）
- * 当前使用伪随机生成用于开发测试
+ * 
+ * 注意：此函数已弃用，请使用 cidToContentHash 从 IPFS CID 提取哈希
+ * @deprecated 使用 lib/utils/cid-converter.ts 中的 cidToContentHash 替代
  */
 export async function generateContentHashAsync(content: string): Promise<number[]> {
-    console.log('⚠️ 使用临时哈希生成方法（开发模式）');
+    console.warn('⚠️ generateContentHashAsync is deprecated. Use cidToContentHash from lib/utils/cid-converter.ts instead');
     
-    // 临时方案：基于内容生成伪哈希（32 字节）
-    // 这不是真正的加密哈希，仅用于开发测试
-    const hash: number[] = [];
-    const contentBytes = new TextEncoder().encode(content);
-    
-    for (let i = 0; i < 32; i++) {
-        // 使用内容、索引和时间戳生成伪随机值
-        const seed = contentBytes[i % contentBytes.length] || 0;
-        const value = (seed + i + Date.now()) % 256;
-        hash.push(value);
-    }
-    
-    console.log('📝 生成的内容哈希（临时）:', hash.slice(0, 8), '... (32 bytes total)');
-    
-    return hash;
-    
-    /* TODO: 后续使用真正的 SHA-256 哈希
+    // 使用 Web Crypto API 生成真正的 SHA-256 哈希
     try {
         const encoder = new TextEncoder();
         const data = encoder.encode(content);
         
-        // 尝试使用 Web Crypto API
+        // 使用 Web Crypto API
         let cryptoObj: any = null;
         if (typeof window !== 'undefined' && window.crypto) {
             cryptoObj = window.crypto;
@@ -302,13 +287,9 @@ export async function generateContentHashAsync(content: string): Promise<number[
             return Array.from(new Uint8Array(hashBuffer));
         }
         
-        // 或者使用 js-sha256 库
-        // import sha256 from 'js-sha256';
-        // const hash = sha256.array(content);
-        // return hash;
-        
+        throw new Error('Web Crypto API not available');
     } catch (error) {
         console.error('SHA-256 哈希生成失败:', error);
+        throw error;
     }
-    */
 }

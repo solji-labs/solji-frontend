@@ -320,6 +320,51 @@ export async function getPublicWishes(
 }
 
 /**
+ * 保存心愿内容到 IPFS
+ */
+export interface SaveWishContentRequest {
+  wish_id: number;
+  content: string;
+  user_address: string;
+  metadata?: Record<string, string>;
+}
+
+export interface SaveWishContentResponse {
+  wish_id: number;
+  cid: string;
+  gateway_url: string;
+  size: number;
+  uploaded_at: string;
+}
+
+export async function saveWishContent(
+  request: SaveWishContentRequest
+): Promise<SaveWishContentResponse> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/wishes/saveWishContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    );
+    const result: ApiResponse<SaveWishContentResponse> = await response.json();
+    
+    if (result.code === 0) {
+      return result.data;
+    }
+    
+    throw new Error(result.message || '保存心愿内容失败');
+  } catch (error) {
+    console.error('保存心愿内容失败:', error);
+    throw error;
+  }
+}
+
+/**
  * 获取捐赠荣誉墙
  * @param size 每页数量，范围：1-100，默认10
  * @param page 页码，从1开始，默认1

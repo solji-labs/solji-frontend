@@ -8,11 +8,13 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Globe, Heart, Info, Lock, Share2, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { useCreateWish, generateWishId, hashWishContent } from '@/hooks/use-create-wish';
+import { useCreateWish, generateWishId } from '@/hooks/use-create-wish';
 import { usePublicWishes } from '@/hooks/use-public-wishes';
 import { useUserWishes } from '@/hooks/use-user-wishes';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
+import { saveWishContent } from '@/lib/api/temple';
+import { cidToContentHash, contentHashToCid } from '@/lib/utils/cid-converter';
 
 export default function WishesPage() {
   const [wishText, setWishText] = useState('');
@@ -50,11 +52,38 @@ export default function WishesPage() {
       const wishId = generateWishId();
       console.log('[solji] 生成许愿 ID:', wishId);
 
-      // 2. 生成内容哈希（使用 SHA-256）
-      const contentHash = await hashWishContent(wishText);
-      console.log('[solji] 生成内容哈希:', contentHash.length, 'bytes');
+      // 2. 先保存心愿内容到 IPFS
+      toast.loading('正在保存心愿内容到 IPFS...', { id: 'save-wish' });
+      const ipfsResult = await saveWishContent({
+        wish_id: wishId,
+        content: wishText,
+        user_address: publicKey.toBase58(),
+        metadata: {
+          is_public: isPublic.toString(),
+          timestamp: new Date().toISOString(),
+        },
+      });
+      console.log('[solji] IPFS 保存成功:', ipfsResult);
+      toast.success('心愿内容已保存到 IPFS', { id: 'save-wish' });
 
-      // 3. 执行许愿
+      // 3. 从 IPFS CID 提取 32 字节哈希（可逆转换）
+      const contentHash = cidToContentHash(ipfsResult.cid);
+      console.log('[solji] 从 CID 提取哈希:', {
+        cid: ipfsResult.cid,
+        hash: contentHash.slice(0, 8),
+        hashLength: contentHash.length
+      });
+      
+      // 验证：可以从哈希重建 CID
+      const rebuiltCid = contentHashToCid(contentHash);
+      console.log('[solji] 验证 CID 转换:', {
+        original: ipfsResult.cid,
+        rebuilt: rebuiltCid,
+        match: rebuiltCid === ipfsResult.cid
+      });
+
+      // 4. 执行链上许愿
+      toast.loading('正在提交到区块链...', { id: 'submit-wish' });
       const result = await createWish({
         wishId,
         contentHash,
@@ -62,6 +91,7 @@ export default function WishesPage() {
       });
 
       console.log('[solji] 许愿成功:', result);
+      toast.dismiss('submit-wish');
 
       // 显示成功消息
       if (result.isFreewish) {
