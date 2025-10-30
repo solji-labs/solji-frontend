@@ -61,6 +61,16 @@ export async function getWishes(userPubkey?: string): Promise<WishesResponse> {
     });
 }
 
+export async function getUserWishes(userPubkey: string): Promise<WishesResponse> {
+    return httpGet<WishesResponse>(`/api/wishes/user/${userPubkey}`, {
+        headers: {
+            'Content-Type': 'application/json',
+            'X-User-Pubkey': userPubkey,
+        },
+        cache: 'no-store',
+    });
+}
+
 export async function likeWish(wishId: number, userPubkey?: string): Promise<any> {
     return httpPost<any>(`/api/wishes/${wishId}/like`, { wish_id: wishId }, {
         headers: {
@@ -109,6 +119,6 @@ export async function getProfile(): Promise<ProfileResponse | null> {
     }
 }
 
-export async function ipfsUpload(content: string): Promise<{ hash: string; size: number; url: string }> {
-    return httpPost<{ hash: string; size: number; url: string }>(`/api/ipfs/upload`, { content });
+export async function ipfsUpload(content: string): Promise<{ hash: string; size: number; url: string; content_hash: number[] }> {
+    return httpPost<{ hash: string; size: number; url: string; content_hash: number[] }>(`/api/ipfs/upload`, { content });
 }

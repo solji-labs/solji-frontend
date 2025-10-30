@@ -99,7 +99,7 @@ export function TempleHeader() {
             className='text-sm hover:text-primary transition-colors'>
             {t.nav.dashboard}
           </Link>
-          <Link
+          {/* <Link
             href='/temple/collection'
             className='text-sm hover:text-primary transition-colors'>
             {t.nav.collection}
@@ -108,7 +108,7 @@ export function TempleHeader() {
             href='/temple/buddha'
             className='text-sm hover:text-primary transition-colors'>
             {t.nav.buddha}
-          </Link>
+          </Link> */}
           <Link
             href='/temple/profile'
             className='text-sm hover:text-primary transition-colors'>

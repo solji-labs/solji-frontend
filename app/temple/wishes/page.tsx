@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useCreateWish } from '@/hooks/use-create-wish';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
-import { getWishes, likeWish, ipfsUpload } from '@/lib/api';
+import { getWishes, likeWish, ipfsUpload, getUserWishes } from '@/lib/api';
 import type { WishItem } from '@/lib/api/types';
 
 const mockMyWishes: WishItem[] = [
@@ -22,7 +22,8 @@ const mockMyWishes: WishItem[] = [
     user_pubkey: 'DemoUser1111AAAA',
     likes: 42,
     created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 80).toISOString()
+    updated_at: new Date(Date.now() - 1000 * 60 * 80).toISOString(),
+    is_liked: false
   },
   {
     id: 9002,
@@ -32,7 +33,8 @@ const mockMyWishes: WishItem[] = [
     user_pubkey: 'DemoUser2222BBBB',
     likes: 37,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString()
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
+    is_liked: false
   },
   {
     id: 9003,
@@ -41,7 +43,8 @@ const mockMyWishes: WishItem[] = [
     user_pubkey: 'DemoUser3333CCCC',
     likes: 58,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString()
+    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString(),
+    is_liked: false
   }
 ];
 
@@ -61,6 +64,24 @@ export default function WishesPage() {
   // 点赞loading状态，用wishId作为key
   const [liking, setLiking] = useState<number | null>(null);
   const [ipfsLoading, setIpfsLoading] = useState(false);
+  const [myWishes, setMyWishes] = useState<WishItem[]>([]);
+  const [myWishesLoading, setMyWishesLoading] = useState(false);
+
+  const reloadMyWishes = async () => {
+    if (!connected || !publicKey) {
+      setMyWishes([]);
+      return;
+    }
+    setMyWishesLoading(true);
+    try {
+      const res = await getUserWishes(publicKey.toString());
+      setMyWishes(res.wishes || []);
+    } catch (e) {
+      setMyWishes([]);
+    } finally {
+      setMyWishesLoading(false);
+    }
+  };
 
   // 加载许愿墙数据
   const loadWishes = async () => {
@@ -95,6 +116,12 @@ export default function WishesPage() {
     );
     setWishesCount(todaysWishes.length);
   }, [userPubkey, wishes]);
+
+  // 我的许愿数据加载
+  useEffect(() => {
+    reloadMyWishes();
+  }, [connected, publicKey]);
+
   const handleSubmitWish = async () => {
     if (!wishText.trim()) return;
     if (!connected) {
@@ -105,10 +132,8 @@ export default function WishesPage() {
       setIpfsLoading(true);
       const ipfs = await ipfsUpload(wishText.trim());
       setIpfsLoading(false);
-      // 将 ipfs.hash 编码为32字节数组，满足合约要求
-      const encoder = new TextEncoder();
-      const hashBytes = encoder.encode(ipfs.hash);
-      const contentHash = Array.from({ length: 32 }, (_, i) => hashBytes[i] ?? 0);
+      // 直接使用后端返回的 content_hash 作为合约参数
+      const contentHash = ipfs.content_hash;
       // 合约调用loading由isLoading（useCreateWish）管理
       const result = await createWish({
         contentHash,
@@ -122,6 +147,7 @@ export default function WishesPage() {
       setWishesCount(wishesCount + 1);
       setWishText('');
       await loadWishes();
+      await reloadMyWishes();
     } catch (err: any) {
       setIpfsLoading(false);
       console.error('[solji] Wish submission failed:', err);
@@ -173,19 +199,8 @@ export default function WishesPage() {
   };
 
   const hasWallet = connected && Boolean(userPubkey);
-  const myWishes = hasWallet
-    ? wishes.filter((wish) => wish.user_pubkey === userPubkey)
-    : [];
-  const sortedMyWishes = hasWallet
-    ? [...myWishes].sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-    : [];
-  const hasUserWishes = sortedMyWishes.length > 0;
-  const displayMyWishes = hasUserWishes ? sortedMyWishes : mockMyWishes;
-  const showConnectNotice = !hasWallet;
-  const showMockNotice = !hasUserWishes;
+  // 使用接口返回的 myWishes，无需本地过滤/排序或mock
+  const displayMyWishes = myWishes;
 
   const remainingFreeWishes = Math.max(0, maxFreeWishes - wishesCount);
   const characterCount = wishText.length;
@@ -434,26 +449,22 @@ export default function WishesPage() {
       <div className='mt-12'>
         <h2 className='text-2xl font-bold mb-6'>My Wishes</h2>
         <Card className='temple-card p-8'>
-          {wishesLoading && hasWallet ? (
-            <div className='flex items-center justify-center gap-2 text-muted-foreground'>
-              <RefreshCw className='w-5 h-5 animate-spin' />
-              <span className='text-sm'>Loading your wishes...</span>
+          {!connected ? (
+            <div className='flex items-center justify-center text-muted-foreground'>
+              <Heart className='w-5 h-5 mr-2' />
+              <span className='text-sm'>Connect wallet to view your wishes</span>
+            </div>
+          ) : myWishesLoading ? (
+            <div className='flex items-center justify-center'>
+              <RefreshCw className='w-5 h-5 animate-spin text-muted-foreground' />
+            </div>
+          ) : myWishes.length === 0 ? (
+            <div className='text-center text-sm text-muted-foreground'>
+              No wishes yet
             </div>
           ) : (
             <div className='space-y-4'>
-              {showConnectNotice && (
-                <div className='text-center text-sm text-muted-foreground'>
-                  Connect your wallet to view your on-chain wishes. Showing demo
-                  wishes below.
-                </div>
-              )}
-              {!showConnectNotice && showMockNotice && (
-                <div className='text-center text-sm text-muted-foreground'>
-                  You have not minted any wishes yet. Showing demo wishes for
-                  preview.
-                </div>
-              )}
-              {displayMyWishes.map((wish) => (
+              {myWishes.map((wish) => (
                 <div
                   key={`${wish.id}-${wish.created_at}`}
                   className='rounded-lg border border-border/50 bg-muted/30 p-4'>
