@@ -1,36 +1,16 @@
+'use client';
+
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Award, Flame, Heart, Sparkles } from 'lucide-react';
+import { Award, Flame, Heart, Sparkles, Loader2 } from 'lucide-react';
+import { useUserIncenseNfts } from '@/hooks/use-user-incense-nfts';
+import { useWallet } from '@solana/wallet-adapter-react';
+import Image from 'next/image';
 
 export default function NFTCollectionPage() {
-  // Mock NFT collection data
-  const incenseNFTs = [
-    {
-      id: '1',
-      name: 'Supreme Incense #1234',
-      image: '/supreme-golden-incense-with-rainbow-aura.jpg',
-      rarity: 'Legendary',
-      mintDate: '2024-01-15',
-      meritValue: 30
-    },
-    {
-      id: '2',
-      name: 'Dragon Incense #5678',
-      image: '/mystical-dragon-incense-with-purple-smoke.jpg',
-      rarity: 'Epic',
-      mintDate: '2024-01-14',
-      meritValue: 10
-    },
-    {
-      id: '3',
-      name: 'Sandalwood #9012',
-      image: '/sandalwood-incense-with-golden-glow.jpg',
-      rarity: 'Rare',
-      mintDate: '2024-01-13',
-      meritValue: 5
-    }
-  ];
+  const { connected } = useWallet();
+  const { nfts: incenseNFTs, loading: incenseLoading, totalNfts } = useUserIncenseNfts();
 
   const badgeNFTs = [
     {
@@ -112,7 +92,11 @@ export default function NFTCollectionPage() {
         <Card className='temple-card p-6'>
           <div className='flex items-center gap-3 mb-2'>
             <Flame className='w-6 h-6 text-orange-500' />
-            <span className='text-2xl font-bold'>{incenseNFTs.length}</span>
+            {incenseLoading ? (
+              <Loader2 className='w-6 h-6 animate-spin text-muted-foreground' />
+            ) : (
+              <span className='text-2xl font-bold'>{totalNfts || 0}</span>
+            )}
           </div>
           <p className='text-sm text-muted-foreground'>Incense NFTs</p>
         </Card>
@@ -154,37 +138,66 @@ export default function NFTCollectionPage() {
 
           {/* Incense NFTs */}
           <TabsContent value='incense'>
-            <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-6'>
-              {incenseNFTs.map((nft) => (
-                <Card
-                  key={nft.id}
-                  className='overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow'>
-                  <div className='aspect-square relative overflow-hidden bg-gradient-to-br from-orange-500/10 to-red-500/10'>
-                    <img
-                      src={nft.image || '/placeholder.svg'}
-                      alt={nft.name}
-                      className='w-full h-full object-cover group-hover:scale-110 transition-transform duration-300'
-                    />
-                    <Badge className='absolute top-3 right-3 bg-background/80 backdrop-blur-sm'>
-                      {nft.rarity}
-                    </Badge>
-                  </div>
-                  <div className='p-4 space-y-2'>
-                    <h3 className='font-semibold'>{nft.name}</h3>
-                    <div className='flex items-center justify-between text-sm'>
-                      <span className='text-muted-foreground'>Merit Value</span>
-                      <span className='font-semibold text-primary'>
-                        {nft.meritValue}
-                      </span>
+            {!connected ? (
+              <div className='text-center py-12'>
+                <Flame className='w-12 h-12 text-muted-foreground mx-auto mb-4' />
+                <h3 className='text-lg font-semibold mb-2'>Connect Wallet</h3>
+                <p className='text-sm text-muted-foreground'>
+                  Connect your wallet to view your Incense NFT collection.
+                </p>
+              </div>
+            ) : incenseLoading ? (
+              <div className='text-center py-12'>
+                <Loader2 className='w-12 h-12 text-primary mx-auto mb-4 animate-spin' />
+                <p className='text-sm text-muted-foreground'>Loading your Incense NFTs...</p>
+              </div>
+            ) : incenseNFTs.length === 0 ? (
+              <div className='text-center py-12'>
+                <Flame className='w-12 h-12 text-muted-foreground mx-auto mb-4' />
+                <h3 className='text-lg font-semibold mb-2'>No Incense NFTs Yet</h3>
+                <p className='text-sm text-muted-foreground'>
+                  Burn incense to mint your first Incense NFT.
+                </p>
+              </div>
+            ) : (
+              <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                {incenseNFTs.map((nft) => (
+                  <Card
+                    key={nft.incenseId}
+                    className='overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow'>
+                    <div className='aspect-square relative overflow-hidden bg-gradient-to-br from-orange-500/10 to-red-500/10'>
+                      <Image
+                        src={nft.image || '/placeholder.svg'}
+                        alt={nft.incenseName}
+                        fill
+                        className='object-cover group-hover:scale-110 transition-transform duration-300'
+                        sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
+                      />
+                      <Badge className='absolute top-3 right-3 bg-black/60 text-white backdrop-blur-sm'>
+                        ×{nft.amount}
+                      </Badge>
                     </div>
-                    <div className='flex items-center justify-between text-xs text-muted-foreground'>
-                      <span>Minted</span>
-                      <span>{nft.mintDate}</span>
+                    <div className='p-4 space-y-2'>
+                      <h3 className='font-semibold'>{nft.incenseName}</h3>
+                      <p className='text-xs text-muted-foreground'>{nft.incenseNameEn}</p>
+                      <div className='flex items-center justify-between text-sm'>
+                        <span className='text-muted-foreground'>Merit Points</span>
+                        <span className='font-semibold text-primary'>
+                          +{nft.meritPoints}
+                        </span>
+                      </div>
+                      <div className='flex items-center justify-between text-xs text-muted-foreground'>
+                        <span>Price</span>
+                        <span>{nft.price} SOL</span>
+                      </div>
+                      <div className='text-xs text-muted-foreground truncate'>
+                        Mint: {nft.mintAddress}
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           {/* Badge NFTs */}

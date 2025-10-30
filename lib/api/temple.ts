@@ -427,3 +427,44 @@ export async function getUserActivities(
     throw error;
   }
 }
+
+/**
+ * 用户今日烧香统计项
+ */
+export interface DailyBurnStat {
+  incense_type_id: number;
+  count: number;
+}
+
+/**
+ * 用户今日烧香统计响应
+ */
+export interface UserDailyBurnResponse {
+  user_address: string;
+  date: string;
+  burn_stats: DailyBurnStat[];
+}
+
+/**
+ * 获取用户今日烧香统计
+ * @param userAddress 用户钱包地址（完整地址）
+ */
+export async function getUserDailyBurn(
+  userAddress: string
+): Promise<UserDailyBurnResponse> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/temple/incense/userDaliyBurn?userAddress=${encodeURIComponent(userAddress)}`
+    );
+    const result: ApiResponse<UserDailyBurnResponse> = await response.json();
+    
+    if (result.code === 0) {
+      return result.data;
+    }
+    
+    throw new Error(result.message || '获取用户今日烧香统计失败');
+  } catch (error) {
+    console.error('获取用户今日烧香统计失败:', error);
+    throw error;
+  }
+}

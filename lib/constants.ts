@@ -2,46 +2,70 @@ import type { IncenseType, DonationTier } from "./types"
 
 export const INCENSE_TYPES: IncenseType[] = [
   {
-    id: "basic",
+    id: "clear",
+    incenseTypeId: 1,
     name: "清香",
-    nameEn: "Basic Incense",
+    nameEn: "Clear Incense",
     price: 0.01,
-    meritPoints: 1,
+    meritPoints: 10,
+    incenseValue: 100,
     description: "Simple and pure, for daily devotion",
     image: "/traditional-incense-stick-glowing.jpg",
     dailyLimit: 10,
   },
   {
     id: "sandalwood",
+    incenseTypeId: 2,
     name: "檀香",
     nameEn: "Sandalwood",
     price: 0.05,
-    meritPoints: 5,
+    meritPoints: 65,
+    incenseValue: 600,
     description: "Premium sandalwood for deeper meditation",
     image: "/sandalwood-incense-with-golden-glow.jpg",
     dailyLimit: 10,
   },
   {
-    id: "dragon",
-    name: "龙香",
-    nameEn: "Dragon Incense",
+    id: "ambergris",
+    incenseTypeId: 3,
+    name: "龙涎香",
+    nameEn: "Ambergris Incense",
     price: 0.1,
-    meritPoints: 10,
+    meritPoints: 1200,
+    incenseValue: 3100,
     description: "Rare dragon incense for great fortune",
     image: "/mystical-dragon-incense-with-purple-smoke.jpg",
     dailyLimit: 10,
   },
   {
     id: "supreme",
+    incenseTypeId: 4,
     name: "至尊香",
     nameEn: "Supreme Incense",
     price: 0.3,
-    meritPoints: 30,
+    meritPoints: 3400,
+    incenseValue: 9000,
     description: "The ultimate offering for enlightenment",
     image: "/supreme-golden-incense-with-rainbow-aura.jpg",
     dailyLimit: 10,
   },
 ]
+
+// Incense ID to Type ID mapping (matches on-chain incense_type_id)
+export const INCENSE_ID_TO_TYPE_ID: Record<string, number> = {
+  clear: 1,
+  sandalwood: 2,
+  ambergris: 3,
+  supreme: 4,
+}
+
+// Incense Type ID to ID mapping (reverse)
+export const INCENSE_TYPE_ID_TO_ID: Record<number, string> = {
+  1: "clear",
+  2: "sandalwood",
+  3: "ambergris",
+  4: "supreme",
+}
 
 export const DONATION_TIERS: Record<
   DonationTier,

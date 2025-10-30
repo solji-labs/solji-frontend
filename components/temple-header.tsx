@@ -100,7 +100,7 @@ export function TempleHeader() {
             rank={rank}
             className='hidden lg:flex'
           />
-          <NetworkIndicator />
+          {/* <NetworkIndicator /> */}
           <ThemeToggle />
           <LanguageSwitcher />
           <WalletButton />

@@ -14,23 +14,24 @@ cp env.example .env.local
 # 3. 构建镜像
 
 ## 3.1 本地开发（Mac ARM64）
-docker build -t solji-frontend:2025103001 .
+docker build -t solji-frontend:2025103010 .
 
 ## 3.2 生产服务器（Linux AMD64）- 推荐使用此方式
-docker buildx build --platform linux/amd64 -t solji-frontend:2025103001-amd64 .
+cd /Users/samxie/dev/remote-work/solji/solji-frontend
+docker buildx build --platform linux/amd64 -t solji-frontend:2025103010-amd64 .
 
 # 导出镜像
 cd /Users/samxie/dev/remote-work/solji/images-files
-docker save -o solji-frontend-2025103001-amd64.tar solji-frontend:2025103001-amd64
+docker save -o solji-frontend-2025103010-amd64.tar solji-frontend:2025103010-amd64
 
 # 服务器端操作（Linux AMD64）
 cd /data
-docker load -i solji-frontend-2025103001-amd64.tar
+docker load -i solji-frontend-2025103010-amd64.tar
 
 docker stop solji-web && docker rm solji-web
 
 # 4. 运行容器
-docker run -d --name solji-web -p 10082:3000 --env-file /data/solji-web/.env.local solji-frontend:2025103001-amd64
+docker run -d --name solji-web -p 10082:3000 --env-file /data/solji-web/.env.local solji-frontend:2025103010-amd64
 
 # 5. 查看日志
 docker logs -f --tail 100 solji-web

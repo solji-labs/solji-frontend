@@ -52,9 +52,9 @@ export function BurnIncenseDialog({
 
       // 将前端香类型映射到合约香类型ID
       const incenseIdMap: Record<string, number> = {
-        'basic': 1,
+        'clear': 1,
         'sandalwood': 2,
-        'dragon': 3,
+        'ambergris': 3,
         'supreme': 4,
       };
 
@@ -63,7 +63,6 @@ export function BurnIncenseDialog({
       
       // 计算支付金额 (SOL 转换为 lamports)
       const paymentAmount = Math.floor(incense.price * LAMPORTS_PER_SOL);
-
       const burnResult = await burnIncenseSimplied({
         incenseTypeId,
         amount,

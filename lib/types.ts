@@ -130,10 +130,12 @@ export function getKarmaLevelProgress(currentKarmaPoints: number): number {
 
 export interface IncenseType {
   id: string;
+  incenseTypeId: number;
   name: string;
   nameEn: string;
   price: number; // in SOL
   meritPoints: number;
+  incenseValue: number;
   description: string;
   image: string;
   dailyLimit: number;
