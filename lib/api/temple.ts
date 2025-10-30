@@ -74,6 +74,9 @@ export interface TempleOverview {
   totalFortuneCount: number;
   totalWishCount: number;
   totalDonationAmount: number;
+  totalInteractions: number;
+  totalIncenseValue: number;
+  dailyActiveUsers: number;
 }
 
 /**
@@ -91,6 +94,19 @@ export interface FortuneRecord {
  * 用户心愿记录
  */
 export interface WishRecord {
+  wish_id: number;
+  user_address: string;
+  wish_content: string;
+  is_anonymous: boolean;
+  create_at: string;
+  synced_at: string;
+  total_likes: number;
+}
+
+/**
+ * 公开心愿记录（与后端 WishItem 对应）
+ */
+export interface PublicWishItem {
   wish_id: number;
   user_address: string;
   wish_content: string;
@@ -285,12 +301,12 @@ export async function getUserWishes(
 export async function getPublicWishes(
   size: number = 10,
   page: number = 1
-): Promise<PaginatedResponse<WishRecord>> {
+): Promise<PaginatedResponse<PublicWishItem>> {
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/v1/temple/wishes/publicWish?size=${size}&page=${page}`
     );
-    const result: ApiResponse<PaginatedResponse<WishRecord>> = await response.json();
+    const result: ApiResponse<PaginatedResponse<PublicWishItem>> = await response.json();
     
     if (result.code === 0) {
       return result.data;

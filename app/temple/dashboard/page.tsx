@@ -15,9 +15,10 @@ import {
   BarChart3,
   Target,
 } from "lucide-react"
-import { TEMPLE_LEVELS } from "@/lib/constants"
+import { TEMPLE_LEVELS, getTempleLevel, getNextTempleLevel } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { getLeaderboards, type LeaderboardData } from '@/lib/api/temple';
+import { useTempleOverview } from '@/hooks/use-temple-overview';
 
 export default function TempleDashboardPage() {
   // 状态管理
@@ -25,6 +26,9 @@ export default function TempleDashboardPage() {
   const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<LeaderboardData | null>(null);
   const [monthlyLeaderboard, setMonthlyLeaderboard] = useState<LeaderboardData | null>(null);
   const [loadingLeaderboards, setLoadingLeaderboards] = useState(true);
+  
+  // 获取寺庙概览数据
+  const { overview, loading: overviewLoading, error: overviewError } = useTempleOverview(120000);
 
   // 获取排行榜数据
   useEffect(() => {
@@ -51,25 +55,37 @@ export default function TempleDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Mock comprehensive temple data
+  // 计算寺庙等级和进度
+  const currentTempleLevel = overview
+    ? getTempleLevel(
+        overview.totalIncenseValue,
+        overview.totalDonationAmount,
+        overview.totalFortuneCount,
+        overview.totalWishCount
+      )
+    : TEMPLE_LEVELS[0];
+  
+  const nextTempleLevel = getNextTempleLevel(currentTempleLevel.level);
+  
+  // 寺庙数据
   const templeData = {
-    currentLevel: 2,
+    currentLevel: currentTempleLevel.level,
     stats: {
-      totalBelievers: 10234,
-      totalIncenseValue: 52341,
-      totalFortunes: 25678,
-      totalWishes: 15432,
-      totalDonations: 234.5,
-      totalInteractions: 93685,
-      dailyActiveUsers: 1234,
-      weeklyGrowth: 15.3,
+      totalBelievers: overview?.totalBelievers || 0,
+      totalIncenseValue: overview?.totalIncenseValue || 0,
+      totalFortunes: overview?.totalFortuneCount || 0,
+      totalWishes: overview?.totalWishCount || 0,
+      totalDonations: overview?.totalDonationAmount || 0,
+      totalInteractions: overview?.totalInteractions || 0,
+      dailyActiveUsers: overview?.dailyActiveUsers || 0,
+      weeklyGrowth: 0, // 需要额外计算或从后端获取
     },
-    nextLevel: TEMPLE_LEVELS[2],
+    nextLevel: nextTempleLevel,
     currentProgress: {
-      incenseValue: 52341,
-      fortunes: 25678,
-      wishes: 15432,
-      donations: 234.5,
+      incenseValue: overview?.totalIncenseValue || 0,
+      fortunes: overview?.totalFortuneCount || 0,
+      wishes: overview?.totalWishCount || 0,
+      donations: overview?.totalDonationAmount || 0,
     },
   }
 
@@ -121,7 +137,30 @@ export default function TempleDashboardPage() {
         <p className="text-muted-foreground">Comprehensive metrics and community leaderboards</p>
       </div>
 
+      {/* Loading State */}
+      {overviewLoading && (
+        <Card className="temple-card p-8 mb-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-3">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-muted-foreground">加载寺庙数据中...</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {overviewError && (
+        <Card className="temple-card p-8 mb-8">
+          <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-center">
+            <p className="font-semibold mb-2">加载失败</p>
+            <p className="text-sm">{overviewError}</p>
+          </div>
+        </Card>
+      )}
+
       {/* Temple Evolution Status */}
+      {!overviewLoading && !overviewError && overview && (
       <Card className="temple-card p-8 mb-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -129,21 +168,23 @@ export default function TempleDashboardPage() {
           </div>
           <div>
             <h2 className="text-3xl font-bold">
-              {TEMPLE_LEVELS[templeData.currentLevel - 1].name}{" "}
-              <span className="text-muted-foreground text-xl">Lv.{templeData.currentLevel}</span>
+              {currentTempleLevel.name}{" "}
+              <span className="text-muted-foreground text-xl">Lv.{currentTempleLevel.level}</span>
             </h2>
-            <p className="text-muted-foreground">{TEMPLE_LEVELS[templeData.currentLevel - 1].nameEn}</p>
+            <p className="text-muted-foreground">{currentTempleLevel.nameEn}</p>
           </div>
         </div>
 
         {/* Evolution Progress */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">
-              Next Evolution: {templeData.nextLevel.name} ({templeData.nextLevel.nameEn})
-            </h3>
-            <span className="text-sm text-muted-foreground">Level {templeData.nextLevel.level}</span>
-          </div>
+          {nextTempleLevel ? (
+            <>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">
+                  Next Evolution: {nextTempleLevel.name} ({nextTempleLevel.nameEn})
+                </h3>
+                <span className="text-sm text-muted-foreground">Level {nextTempleLevel.level}</span>
+              </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Incense Progress */}
@@ -156,12 +197,12 @@ export default function TempleDashboardPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
                     {templeData.currentProgress.incenseValue.toLocaleString()} /{" "}
-                    {templeData.nextLevel.requirements.incenseValue.toLocaleString()}
+                    {nextTempleLevel.incenseValue.toLocaleString()}
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
                       templeData.currentProgress.incenseValue,
-                      templeData.nextLevel.requirements.incenseValue,
+                      nextTempleLevel.incenseValue,
                     ).toFixed(1)}
                     %
                   </span>
@@ -169,7 +210,7 @@ export default function TempleDashboardPage() {
                 <Progress
                   value={calculateProgress(
                     templeData.currentProgress.incenseValue,
-                    templeData.nextLevel.requirements.incenseValue,
+                    nextTempleLevel.incenseValue,
                   )}
                   className="h-3"
                 />
@@ -186,12 +227,12 @@ export default function TempleDashboardPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
                     {templeData.currentProgress.fortunes.toLocaleString()} /{" "}
-                    {templeData.nextLevel.requirements.fortunes.toLocaleString()}
+                    {nextTempleLevel.drawFortuneCount.toLocaleString()}
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
                       templeData.currentProgress.fortunes,
-                      templeData.nextLevel.requirements.fortunes,
+                      nextTempleLevel.drawFortuneCount,
                     ).toFixed(1)}
                     %
                   </span>
@@ -199,7 +240,7 @@ export default function TempleDashboardPage() {
                 <Progress
                   value={calculateProgress(
                     templeData.currentProgress.fortunes,
-                    templeData.nextLevel.requirements.fortunes,
+                    nextTempleLevel.drawFortuneCount,
                   )}
                   className="h-3"
                 />
@@ -216,18 +257,18 @@ export default function TempleDashboardPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
                     {templeData.currentProgress.wishes.toLocaleString()} /{" "}
-                    {templeData.nextLevel.requirements.wishes.toLocaleString()}
+                    {nextTempleLevel.wishCount.toLocaleString()}
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
                       templeData.currentProgress.wishes,
-                      templeData.nextLevel.requirements.wishes,
+                      nextTempleLevel.wishCount,
                     ).toFixed(1)}
                     %
                   </span>
                 </div>
                 <Progress
-                  value={calculateProgress(templeData.currentProgress.wishes, templeData.nextLevel.requirements.wishes)}
+                  value={calculateProgress(templeData.currentProgress.wishes, nextTempleLevel.wishCount)}
                   className="h-3"
                 />
               </div>
@@ -243,12 +284,12 @@ export default function TempleDashboardPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
                     {templeData.currentProgress.donations.toFixed(1)} SOL /{" "}
-                    {templeData.nextLevel.requirements.donations} SOL
+                    {nextTempleLevel.donationAmount} SOL
                   </span>
                   <span className="font-semibold">
                     {calculateProgress(
                       templeData.currentProgress.donations,
-                      templeData.nextLevel.requirements.donations,
+                      nextTempleLevel.donationAmount,
                     ).toFixed(1)}
                     %
                   </span>
@@ -256,17 +297,26 @@ export default function TempleDashboardPage() {
                 <Progress
                   value={calculateProgress(
                     templeData.currentProgress.donations,
-                    templeData.nextLevel.requirements.donations,
+                    nextTempleLevel.donationAmount,
                   )}
                   className="h-3"
                 />
               </div>
             </div>
           </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-lg font-semibold text-primary mb-2">🎉 最高等级！</p>
+              <p className="text-muted-foreground">寺庙已达到最高等级</p>
+            </div>
+          )}
         </div>
       </Card>
+      )}
 
       {/* Stats Grid */}
+      {!overviewLoading && !overviewError && overview && (
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card className="temple-card p-6">
           <div className="flex items-center justify-between mb-4">
@@ -276,7 +326,8 @@ export default function TempleDashboardPage() {
           <div className="space-y-1">
             <p className="text-3xl font-bold">{templeData.stats.totalBelievers.toLocaleString()}</p>
             <p className="text-sm text-muted-foreground">Total Believers</p>
-            <p className="text-xs text-green-500">+{templeData.stats.weeklyGrowth}% this week</p>
+            {/* <p className="text-xs text-green-500">+{templeData.stats.weeklyGrowth}% this week</p> */}
+            <p className="text-xs text-muted-foreground">Community members</p>
           </div>
         </Card>
 
@@ -316,6 +367,7 @@ export default function TempleDashboardPage() {
           </div>
         </Card>
       </div>
+      )}
 
       {/* Leaderboards */}
       <Card className="temple-card p-6" id="leaderboards">

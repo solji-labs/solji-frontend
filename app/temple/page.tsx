@@ -9,20 +9,21 @@ import { useState, useEffect } from 'react';
 import { 
   getRecentActivities, 
   getTopContributors,
-  getTempleOverview,
   type RecentActivity,
-  type TopContributor,
-  type TempleOverview
+  type TopContributor
 } from '@/lib/api/temple';
+import { useTempleOverview } from '@/hooks/use-temple-overview';
+import { getTempleLevel, getNextTempleLevel } from '@/lib/types';
 
 export default function TempleHomePage() {
   // 状态管理
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [topContributors, setTopContributors] = useState<TopContributor[]>([]);
-  const [templeOverview, setTempleOverview] = useState<TempleOverview | null>(null);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [loadingContributors, setLoadingContributors] = useState(true);
-  const [loadingOverview, setLoadingOverview] = useState(true);
+  
+  // 使用 hook 获取寺庙概览数据
+  const { overview: templeOverview, loading: loadingOverview } = useTempleOverview(300000);
 
   // 获取最近活动
   useEffect(() => {
@@ -62,50 +63,63 @@ export default function TempleHomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // 获取寺庙概览
-  useEffect(() => {
-    const fetchTempleOverview = async () => {
-      try {
-        const data = await getTempleOverview();
-        setTempleOverview(data);
-      } catch (error) {
-        console.error('获取寺庙概览失败:', error);
-      } finally {
-        setLoadingOverview(false);
-      }
-    };
 
-    fetchTempleOverview();
-    // 每5分钟刷新一次
-    const interval = setInterval(fetchTempleOverview, 300000);
-    return () => clearInterval(interval);
-  }, []);
-
+  // 计算寺庙等级和进度
+  const currentTempleLevel = templeOverview
+    ? getTempleLevel(
+        templeOverview.totalIncenseValue,
+        templeOverview.totalDonationAmount,
+        templeOverview.totalFortuneCount,
+        templeOverview.totalWishCount
+      )
+    : { level: 1, name: '草庙', nameEn: 'Rustic Shrine', incenseValue: 0, donationAmount: 0, drawFortuneCount: 0, wishCount: 0 };
+  
+  const nextTempleLevel = getNextTempleLevel(currentTempleLevel.level);
+  
+  // 计算进度百分比
+  const calculateProgress = (current: number, required: number) => {
+    if (required === 0) return 100;
+    return Math.min((current / required) * 100, 100);
+  };
+  
   // 寺庙统计数据 - 从 API 获取真实数据
   const templeStats = {
-    level: 2,
-    name: "赤庙",
-    nameEn: "Vibrant Shrine",
+    level: currentTempleLevel.level,
+    name: currentTempleLevel.name,
+    nameEn: currentTempleLevel.nameEn,
     totalBelievers: templeOverview?.totalBelievers || 0,
     totalIncense: templeOverview?.totalIncenseCount || 0,
     totalFortunes: templeOverview?.totalFortuneCount || 0,
     totalWishes: templeOverview?.totalWishCount || 0,
     totalDonations: templeOverview?.totalDonationAmount || 0,
-    nextLevel: {
-      name: "灵殿",
-      nameEn: "Temple of Spirit",
+    nextLevel: nextTempleLevel ? {
+      name: nextTempleLevel.name,
+      nameEn: nextTempleLevel.nameEn,
       progress: {
-        incense: 65,
-        fortunes: 45,
-        wishes: 38,
-        donations: 52,
+        incense: calculateProgress(templeOverview?.totalIncenseValue || 0, nextTempleLevel.incenseValue),
+        fortunes: calculateProgress(templeOverview?.totalFortuneCount || 0, nextTempleLevel.drawFortuneCount),
+        wishes: calculateProgress(templeOverview?.totalWishCount || 0, nextTempleLevel.wishCount),
+        donations: calculateProgress(templeOverview?.totalDonationAmount || 0, nextTempleLevel.donationAmount),
       },
-    },
+    } : null,
   }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      {/* Loading State */}
+      {loadingOverview && (
+        <Card className="temple-card p-8 mb-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-3">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-muted-foreground">加载寺庙数据中...</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Temple Status Card */}
+      {!loadingOverview && templeOverview && (
       <Card className="temple-card p-8 mb-8">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-2">
@@ -144,48 +158,58 @@ export default function TempleHomePage() {
 
         {/* Temple Evolution Progress */}
         <div className="mt-6 pt-6 border-t border-border">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">
-              Next Level: {templeStats.nextLevel.name} ({templeStats.nextLevel.nameEn})
-            </h3>
-            <Link href="/temple/dashboard">
-              <Button variant="ghost" size="sm">
-                View Details
-              </Button>
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span>Incense</span>
-                <span className="text-muted-foreground">{templeStats.nextLevel.progress.incense}%</span>
+          {templeStats.nextLevel ? (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">
+                  Next Level: {templeStats.nextLevel.name} ({templeStats.nextLevel.nameEn})
+                </h3>
+                <Link href="/temple/dashboard">
+                  <Button variant="ghost" size="sm">
+                    View Details
+                  </Button>
+                </Link>
               </div>
-              <Progress value={templeStats.nextLevel.progress.incense} className="h-2" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span>Fortunes</span>
-                <span className="text-muted-foreground">{templeStats.nextLevel.progress.fortunes}%</span>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>Incense</span>
+                    <span className="text-muted-foreground">{templeStats.nextLevel.progress.incense.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={templeStats.nextLevel.progress.incense} className="h-2" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>Fortunes</span>
+                    <span className="text-muted-foreground">{templeStats.nextLevel.progress.fortunes.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={templeStats.nextLevel.progress.fortunes} className="h-2" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>Wishes</span>
+                    <span className="text-muted-foreground">{templeStats.nextLevel.progress.wishes.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={templeStats.nextLevel.progress.wishes} className="h-2" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>Donations</span>
+                    <span className="text-muted-foreground">{templeStats.nextLevel.progress.donations.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={templeStats.nextLevel.progress.donations} className="h-2" />
+                </div>
               </div>
-              <Progress value={templeStats.nextLevel.progress.fortunes} className="h-2" />
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm font-semibold text-primary">🎉 最高等级！</p>
+              <p className="text-xs text-muted-foreground mt-1">寺庙已达到最高等级</p>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span>Wishes</span>
-                <span className="text-muted-foreground">{templeStats.nextLevel.progress.wishes}%</span>
-              </div>
-              <Progress value={templeStats.nextLevel.progress.wishes} className="h-2" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span>Donations</span>
-                <span className="text-muted-foreground">{templeStats.nextLevel.progress.donations}%</span>
-              </div>
-              <Progress value={templeStats.nextLevel.progress.donations} className="h-2" />
-            </div>
-          </div>
+          )}
         </div>
       </Card>
+      )}
 
       {/* Main Actions Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

@@ -234,3 +234,107 @@ export const DONATE_LEVELS: readonly DonateLevel[] = [
     badgeLevel: 'Supreme'
   }
 ] as const;
+
+
+
+
+
+
+/**
+ * 捐赠等级系统
+ * Donate Level System
+ */
+export interface TempleLevel {
+  level: number;
+  name: string;
+  nameEn: string;
+  incenseValue: number;
+  donationAmount: number;
+  drawFortuneCount: number;
+  wishCount: number;
+}
+
+/**
+ * 功德值等级配置
+ * 居士 → 香客 → 供奉 → 寺主
+ */
+export const TEMPLE_LEVELS: readonly TempleLevel[] = [
+  {
+    level: 1,
+    name: '草庙',
+    nameEn: 'Rustic Shrine',
+    incenseValue: 0,
+    donationAmount: 0,
+    drawFortuneCount: 0,
+    wishCount: 0
+  },
+  {
+    level: 2,
+    name: '赤庙',
+    nameEn: 'Vibrant Shrine',
+    incenseValue: 100000,
+    donationAmount: 100,
+    drawFortuneCount: 5000,
+    wishCount: 3000
+  },
+  {
+    level: 3,
+    name: '灵殿',
+    nameEn: 'Temple of Spirit',
+    incenseValue: 1000000,
+    donationAmount: 1000,
+    drawFortuneCount: 50000,
+    wishCount: 30000
+  },
+  {
+    level: 4,
+    name: '赛博神殿',
+    nameEn: 'Cyber Temple',
+    incenseValue: 10000000,
+    donationAmount: 10000,
+    drawFortuneCount: 500000,
+    wishCount: 300000
+  }
+] as const;
+
+/**
+ * 根据寺庙数据计算当前等级
+ * @param incenseValue 香火值
+ * @param donationAmount 捐赠金额
+ * @param drawFortuneCount 抽签次数
+ * @param wishCount 心愿次数
+ * @returns 寺庙等级
+ */
+export function getTempleLevel(
+  incenseValue: number,
+  donationAmount: number,
+  drawFortuneCount: number,
+  wishCount: number
+): TempleLevel {
+  // 从高到低遍历，找到第一个满足所有条件的等级
+  for (let i = TEMPLE_LEVELS.length - 1; i >= 0; i--) {
+    const level = TEMPLE_LEVELS[i];
+    if (
+      incenseValue >= level.incenseValue &&
+      donationAmount >= level.donationAmount &&
+      drawFortuneCount >= level.drawFortuneCount &&
+      wishCount >= level.wishCount
+    ) {
+      return level;
+    }
+  }
+  // 默认返回第一级
+  return TEMPLE_LEVELS[0];
+}
+
+/**
+ * 获取下一个寺庙等级
+ * @param currentLevel 当前等级
+ * @returns 下一个等级，如果已是最高等级则返回 null
+ */
+export function getNextTempleLevel(currentLevel: number): TempleLevel | null {
+  if (currentLevel >= TEMPLE_LEVELS.length) {
+    return null;
+  }
+  return TEMPLE_LEVELS[currentLevel];
+}

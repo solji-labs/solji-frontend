@@ -6,9 +6,11 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Globe, Heart, Info, Lock, Share2, Sparkles } from 'lucide-react';
+import { Globe, Heart, Info, Lock, Share2, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useCreateWish, generateWishId, hashWishContent } from '@/hooks/use-create-wish';
+import { usePublicWishes } from '@/hooks/use-public-wishes';
+import { useUserWishes } from '@/hooks/use-user-wishes';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 
@@ -20,6 +22,16 @@ export default function WishesPage() {
 
   const { publicKey, connected } = useWallet();
   const { createWish, loading, error, result, resetState } = useCreateWish();
+  const { wishes, total, loading: wishesLoading, error: wishesError, hasMore, loadMore, refresh } = usePublicWishes(20);
+  const { 
+    wishes: myWishes, 
+    total: myTotal, 
+    loading: myWishesLoading, 
+    error: myWishesError, 
+    hasMore: myHasMore, 
+    loadMore: myLoadMore, 
+    refresh: myRefresh 
+  } = useUserWishes(publicKey?.toBase58(), 10);
 
   const handleSubmitWish = async () => {
     if (!wishText.trim()) {
@@ -66,6 +78,9 @@ export default function WishesPage() {
       // 更新状态
       setWishesCount(wishesCount + 1);
       setWishText('');
+      
+      // 刷新用户心愿列表
+      myRefresh();
 
     } catch (err: any) {
       console.error('[solji] 许愿失败:', err);
@@ -247,107 +262,248 @@ export default function WishesPage() {
         </div>
 
         {/* Public Wishes Wall */}
-        <div className='space-y-6'>
+        <div className='space-y-6' id='public-wishes'>
           <Card className='temple-card p-6'>
             <div className='flex items-center justify-between mb-4'>
               <h2 className='text-xl font-semibold'>Public Wishes</h2>
-              <Badge variant='secondary'>
-                <Globe className='w-3 h-3 mr-1' />
-                15,432 wishes
-              </Badge>
+              <div className='flex items-center gap-2'>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={refresh}
+                  disabled={wishesLoading}>
+                  <RefreshCw className={`w-4 h-4 ${wishesLoading ? 'animate-spin' : ''}`} />
+                </Button>
+                <Badge variant='secondary'>
+                  <Globe className='w-3 h-3 mr-1' />
+                  {total.toLocaleString()} wishes
+                </Badge>
+              </div>
             </div>
 
+            {/* Error State */}
+            {wishesError && (
+              <div className='p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm'>
+                {wishesError}
+              </div>
+            )}
+
+            {/* Loading State */}
+            {wishesLoading && wishes.length === 0 && (
+              <div className='flex items-center justify-center py-12'>
+                <Loader2 className='w-8 h-8 animate-spin text-muted-foreground' />
+              </div>
+            )}
+
+            {/* Wishes List */}
+            {!wishesLoading && wishes.length === 0 && !wishesError && (
+              <div className='text-center py-12 text-muted-foreground'>
+                <Heart className='w-12 h-12 mx-auto mb-3 opacity-50' />
+                <p>还没有公开的心愿</p>
+              </div>
+            )}
+
             <div className='space-y-3 max-h-[600px] overflow-y-auto'>
-              {[
-                {
-                  user: '0x7a3b...4f2c',
-                  wish: 'May my family be healthy and happy always',
-                  time: '2 min ago',
-                  shared: true
-                },
-                {
-                  user: '0x9d1e...8a6b',
-                  wish: 'Wishing for success in my new business venture',
-                  time: '5 min ago',
-                  shared: false
-                },
-                {
-                  user: '0x4c2f...1d9e',
-                  wish: 'May I find true love this year',
-                  time: '8 min ago',
-                  shared: true
-                },
-                {
-                  user: '0x6b8a...3e7c',
-                  wish: 'Hoping for world peace and harmony',
-                  time: '12 min ago',
-                  shared: true
-                },
-                {
-                  user: '0x2e5d...9f1a',
-                  wish: 'May my crypto portfolio moon to the stars',
-                  time: '15 min ago',
-                  shared: false
-                },
-                {
-                  user: '0x8f3c...6d2b',
-                  wish: 'Wishing for good health for my parents',
-                  time: '18 min ago',
-                  shared: true
-                }
-              ].map((wish, i) => (
+              {wishes.map((wish) => (
                 <Card
-                  key={i}
+                  key={wish.wish_id}
                   className='p-4 bg-muted/30 hover:bg-muted/50 transition-colors'>
                   <div className='space-y-2'>
                     <div className='flex items-center justify-between'>
                       <span className='text-xs font-medium text-muted-foreground'>
-                        {wish.user}
+                        {wish.is_anonymous ? 'Anonymous' : wish.user_address}
                       </span>
                       <span className='text-xs text-muted-foreground'>
-                        {wish.time}
+                        {wish.synced_at}
                       </span>
                     </div>
-                    <p className='text-sm leading-relaxed'>{wish.wish}</p>
+                    <p className='text-sm leading-relaxed break-words'>
+                      {wish.wish_content}
+                    </p>
                     <div className='flex items-center justify-between pt-2'>
                       <div className='flex items-center gap-2'>
                         <Heart className='w-4 h-4 text-pink-500' />
                         <span className='text-xs text-muted-foreground'>
-                          {Math.floor(Math.random() * 50) + 5} likes
+                          {wish.total_likes} likes
                         </span>
                       </div>
-                      {wish.shared && (
-                        <Badge variant='secondary' className='text-xs'>
-                          <Share2 className='w-3 h-3 mr-1' />
-                          Shared
-                        </Badge>
-                      )}
+                      <span className='text-xs text-muted-foreground'>
+                        {wish.create_at}
+                      </span>
                     </div>
                   </div>
                 </Card>
               ))}
+
+              {/* Load More Button */}
+              {hasMore && (
+                <div className='flex justify-center pt-4'>
+                  <Button
+                    variant='outline'
+                    onClick={loadMore}
+                    disabled={wishesLoading}>
+                    {wishesLoading ? (
+                      <>
+                        <Loader2 className='w-4 h-4 mr-2 animate-spin' />
+                        加载中...
+                      </>
+                    ) : (
+                      '加载更多'
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </Card>
         </div>
       </div>
 
       {/* My Wishes */}
-      <div className='mt-12'>
-        <h2 className='text-2xl font-bold mb-6'>My Wishes</h2>
-        <Card className='temple-card p-8 text-center'>
-          <div className='max-w-md mx-auto space-y-4'>
-            <div className='w-16 h-16 rounded-full bg-muted mx-auto flex items-center justify-center'>
-              <Heart className='w-8 h-8 text-muted-foreground' />
+      <div className='mt-12' id='my-wishes'>
+        <div className='flex items-center justify-between mb-6'>
+          <h2 className='text-2xl font-bold'>My Wishes</h2>
+          {connected && myWishes.length > 0 && (
+            <div className='flex items-center gap-2'>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={myRefresh}
+                disabled={myWishesLoading}>
+                <RefreshCw className={`w-4 h-4 ${myWishesLoading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Badge variant='secondary'>
+                {myTotal} {myTotal === 1 ? 'wish' : 'wishes'}
+              </Badge>
             </div>
-            <div>
-              <h3 className='text-lg font-semibold mb-2'>No Wishes Yet</h3>
-              <p className='text-sm text-muted-foreground leading-relaxed'>
-                Make your first wish to start your collection of Ema plaque
-                NFTs.
-              </p>
+          )}
+        </div>
+
+        {/* Not Connected State */}
+        {!connected && (
+          <Card className='temple-card p-8 text-center'>
+            <div className='max-w-md mx-auto space-y-4'>
+              <div className='w-16 h-16 rounded-full bg-muted mx-auto flex items-center justify-center'>
+                <Lock className='w-8 h-8 text-muted-foreground' />
+              </div>
+              <div>
+                <h3 className='text-lg font-semibold mb-2'>Connect Wallet</h3>
+                <p className='text-sm text-muted-foreground leading-relaxed'>
+                  Connect your wallet to view your wishes.
+                </p>
+              </div>
             </div>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {connected && myWishesLoading && myWishes.length === 0 && (
+          <Card className='temple-card p-8'>
+            <div className='flex items-center justify-center py-8'>
+              <Loader2 className='w-8 h-8 animate-spin text-muted-foreground' />
+            </div>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {connected && myWishesError && (
+          <Card className='temple-card p-8'>
+            <div className='p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center'>
+              {myWishesError}
+            </div>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {connected && !myWishesLoading && myWishes.length === 0 && !myWishesError && (
+          <Card className='temple-card p-8 text-center'>
+            <div className='max-w-md mx-auto space-y-4'>
+              <div className='w-16 h-16 rounded-full bg-muted mx-auto flex items-center justify-center'>
+                <Heart className='w-8 h-8 text-muted-foreground' />
+              </div>
+              <div>
+                <h3 className='text-lg font-semibold mb-2'>No Wishes Yet</h3>
+                <p className='text-sm text-muted-foreground leading-relaxed'>
+                  Make your first wish to start your collection of Ema plaque NFTs.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Wishes Grid */}
+        {connected && myWishes.length > 0 && (
+          <div className='space-y-4'>
+            <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-4'>
+              {myWishes.map((wish) => (
+                <Card
+                  key={wish.wish_id}
+                  className='temple-card p-6 hover:shadow-lg transition-shadow'>
+                  <div className='space-y-4'>
+                    {/* Wish Header */}
+                    <div className='flex items-center justify-between'>
+                      <Badge variant={wish.is_anonymous ? 'secondary' : 'default'}>
+                        {wish.is_anonymous ? (
+                          <>
+                            <Lock className='w-3 h-3 mr-1' />
+                            Anonymous
+                          </>
+                        ) : (
+                          <>
+                            <Globe className='w-3 h-3 mr-1' />
+                            Public
+                          </>
+                        )}
+                      </Badge>
+                      <span className='text-xs text-muted-foreground'>
+                        #{wish.wish_id}
+                      </span>
+                    </div>
+
+                    {/* Wish Content */}
+                    <div className='min-h-[80px]'>
+                      <p className='text-sm leading-relaxed break-words'>
+                        {wish.wish_content}
+                      </p>
+                    </div>
+
+                    {/* Wish Footer */}
+                    <div className='pt-4 border-t space-y-2'>
+                      <div className='flex items-center justify-between text-xs text-muted-foreground'>
+                        <div className='flex items-center gap-2'>
+                          <Heart className='w-4 h-4 text-pink-500' />
+                          <span>{wish.total_likes} likes</span>
+                        </div>
+                        <span>{wish.synced_at}</span>
+                      </div>
+                      <div className='text-xs text-muted-foreground'>
+                        {wish.create_at}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {/* Load More Button */}
+            {myHasMore && (
+              <div className='flex justify-center pt-4'>
+                <Button
+                  variant='outline'
+                  onClick={myLoadMore}
+                  disabled={myWishesLoading}>
+                  {myWishesLoading ? (
+                    <>
+                      <Loader2 className='w-4 h-4 mr-2 animate-spin' />
+                      加载中...
+                    </>
+                  ) : (
+                    '加载更多'
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
-        </Card>
+        )}
       </div>
     </div>
   );
