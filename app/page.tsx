@@ -211,9 +211,9 @@ export default function LandingPage() {
           <div className='grid md:grid-cols-2 lg:grid-cols-4 gap-6'>
             <Card className='temple-card p-6 space-y-4'>
               <div className='text-sm font-semibold text-primary'>
-                Phase 1 - Q3 2025
+                Phase 1 - Q4 2025
               </div>
-              <h3 className='text-xl font-semibold'>Foundation</h3>
+              <h3 className='text-xl font-semibold'>MVP Launch</h3>
               <p className='text-sm text-muted-foreground'>
                 {t.landing.roadmap.phase1}
               </p>
@@ -221,9 +221,9 @@ export default function LandingPage() {
 
             <Card className='temple-card p-6 space-y-4'>
               <div className='text-sm font-semibold text-primary'>
-                Phase 2 - Q4 2025
+                Phase 2 - Q1 2026
               </div>
-              <h3 className='text-xl font-semibold'>Expansion</h3>
+              <h3 className='text-xl font-semibold'>TempleDAO Activation</h3>
               <p className='text-sm text-muted-foreground'>
                 {t.landing.roadmap.phase2}
               </p>
@@ -231,9 +231,9 @@ export default function LandingPage() {
 
             <Card className='temple-card p-6 space-y-4'>
               <div className='text-sm font-semibold text-primary'>
-                Phase 3 - Q1 2026
+                Phase 3 - Q2 2026
               </div>
-              <h3 className='text-xl font-semibold'>Enhancement</h3>
+              <h3 className='text-xl font-semibold'>Emotional-Fi Oracle</h3>
               <p className='text-sm text-muted-foreground'>
                 {t.landing.roadmap.phase3}
               </p>
@@ -241,11 +241,21 @@ export default function LandingPage() {
 
             <Card className='temple-card p-6 space-y-4'>
               <div className='text-sm font-semibold text-primary'>
-                Phase 4 - Q2 2026
+                Phase 4 - Q3 2026
               </div>
-              <h3 className='text-xl font-semibold'>Multi-Temple</h3>
+              <h3 className='text-xl font-semibold'>Cross-Chain Expansion</h3>
               <p className='text-sm text-muted-foreground'>
                 {t.landing.roadmap.phase4}
+              </p>
+            </Card>
+
+            <Card className='temple-card p-6 space-y-4'>
+              <div className='text-sm font-semibold text-primary'>
+                Phase 5 - Q4 2026
+              </div>
+              <h3 className='text-xl font-semibold'>Templeverse SDK</h3>
+              <p className='text-sm text-muted-foreground'>
+                {t.landing.roadmap.phase5}
               </p>
             </Card>
           </div>
@@ -282,19 +292,19 @@ export default function LandingPage() {
 
             <div className='flex items-center gap-6'>
               <Link
-                href='https://x.com/soljidotfun'
+                href='https://x.com/solji_xyz'
                 className='text-sm text-muted-foreground hover:text-primary transition-colors'>
-                Twitter
+                X
               </Link>
               <Link
-                href='#'
+                href='https://t.me/solji_xyz'
                 className='text-sm text-muted-foreground hover:text-primary transition-colors'>
-                Discord
+                Telegram
               </Link>
               <Link
-                href='#'
+                href='https://docs.solji.fun/docs'
                 className='text-sm text-muted-foreground hover:text-primary transition-colors'>
-                Docs
+                Whitepaper
               </Link>
             </div>
           </div>

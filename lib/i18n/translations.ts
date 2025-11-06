@@ -44,6 +44,7 @@ export interface Translations {
       phase2: string;
       phase3: string;
       phase4: string;
+      phase5: string;
     };
   };
   // Common
@@ -259,9 +260,10 @@ export const translations: Record<Language, Translations> = {
       roadmap: {
         title: '发展路线图',
         phase1: '第一阶段：MVP - 烧香、抽签、UI 演化',
-        phase2: '第二阶段：许愿系统、排行榜、佛像 NFT',
+        phase2: '第二阶段：许愿系统、排行榜、佛像 NFT，上线 Solana 主网',
         phase3: '第三阶段：运势编辑器、表情包提交、二级市场',
-        phase4: '第四阶段：跨链部署、多寺庙网络'
+        phase4: '第四阶段：跨链部署、多寺庙网络',
+        phase5: '第五阶段：启动合作伙伴开放 API'
       }
     },
     common: {
@@ -469,9 +471,11 @@ export const translations: Record<Language, Translations> = {
       roadmap: {
         title: 'Roadmap',
         phase1: 'Phase 1: MVP - Incense, Fortune, UI Evolution',
-        phase2: 'Phase 2: Wish System, Leaderboards, Buddha NFTs',
+        phase2:
+          'Phase 2: Incense, Fortune, Wish modules live on Solana Mainnet',
         phase3: 'Phase 3: Fortune Editor, Meme Submission, Secondary Market',
-        phase4: 'Phase 4: Cross-chain, Multi-temple Network'
+        phase4: 'Phase 4: Cross-chain, Multi-temple Network',
+        phase5: 'Phase 5: Launch open API for partner temples'
       }
     },
     common: {
@@ -681,9 +685,11 @@ export const translations: Record<Language, Translations> = {
       roadmap: {
         title: 'ロードマップ',
         phase1: 'フェーズ1：MVP - お香、おみくじ、UI進化',
-        phase2: 'フェーズ2：願掛けシステム、リーダーボード、仏像NFT',
-        phase3: 'フェーズ3：おみくじエディター、ミーム投稿、二次市場',
-        phase4: 'フェーズ4：クロスチェーン、マルチ寺院ネットワーク'
+        phase2:
+          'フェーズ2:『フェーズ2: お香、占い、願いモジュールがSolanaメインネットに公開』',
+        phase3: 'フェーズ3: 運勢エディター、ミーム投稿、セカンダリーマーケット',
+        phase4: 'フェーズ4: クロスチェーン、複数寺院ネットワーク',
+        phase5: 'フェーズ5: 提携寺院向けオープンAPIの公開'
       }
     },
     common: {
@@ -890,9 +896,10 @@ export const translations: Record<Language, Translations> = {
       roadmap: {
         title: '로드맵',
         phase1: '1단계: MVP - 향, 운세, UI 진화',
-        phase2: '2단계: 소원 시스템, 리더보드, 불상 NFT',
+        phase2: '2단계: 향, 운세, 소원 모듈 솔라나 메인넷 출시',
         phase3: '3단계: 운세 편집기, 밈 제출, 2차 시장',
-        phase4: '4단계: 크로스체인, 다중 사원 네트워크'
+        phase4: '4단계: 크로스체인, 다중 사원 네트워크',
+        phase5: '5단계: 파트너 사원을 위한 오픈 API 출시'
       }
     },
     common: {
@@ -1097,10 +1104,12 @@ export const translations: Record<Language, Translations> = {
       },
       roadmap: {
         title: 'แผนงาน',
-        phase1: 'ระยะที่ 1: MVP - ธูป, เซียมซี, วิวัฒนาการ UI',
-        phase2: 'ระยะที่ 2: ระบบขอพร, ลีดเดอร์บอร์ด, NFT พระพุทธรูป',
-        phase3: 'ระยะที่ 3: ตัวแก้ไขเซียมซี, ส่งมีม, ตลาดรอง',
-        phase4: 'ระยะที่ 4: ข้ามเชน, เครือข่ายวัดหลายแห่ง'
+        phase1: 'เฟส 1: MVP - ธูป, เซียมซี, วิวัฒนาการ UI',
+        phase2:
+          'เฟส 2: โมดูลธูป, โชคลาภ, ความปรารถนา เปิดใช้งานบน Solana Mainnet',
+        phase3: 'เฟส 3: ตัวแก้ไขโชคลาภ, การส่งมีม, ตลาดรอง',
+        phase4: 'เฟส 4: ข้ามเครือข่าย, เครือข่ายหลายวัด',
+        phase5: 'เฟส 5: เปิดตัว API แบบเปิดสำหรับวัดพันธมิตร'
       }
     },
     common: {
