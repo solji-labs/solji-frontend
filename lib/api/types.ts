@@ -101,6 +101,7 @@ export interface WishItem {
     content: string;
     user_pubkey: string;
     likes: number;
+    self_wish?: boolean;
     created_at: string;
     updated_at: string;
     is_liked: boolean;
@@ -192,4 +193,58 @@ export interface ProfileAchievementsResponse {
         unlocked: boolean;
         unlocked_at: string | null;
     }>;
+}
+
+export interface StatsResponse {
+    created_at: string;
+    total_donation_amount: number;
+    total_donations: number;
+    total_donations_sol: number;
+    total_draw_fortune: number;
+    total_incense_points: number;
+    total_incense_points_distributed: number;
+    total_merit: number;
+    total_merit_distributed: number;
+    total_users: number;
+    total_wishes: number;
+    updated_at: number;
+}
+
+export interface RecentActivityItem {
+    action: string;
+    created_at: string;
+    user_pubkey: string;
+}
+
+export interface RecentActivitiesResponse {
+    activities: RecentActivityItem[];
+    count: number;
+}
+
+export interface IncenseBurnCountResponse {
+    burn_count: number;
+    incense_type: number;
+    max_daily_limit: number;
+    user_pubkey: string;
+}
+
+export interface IncenseHistoryItem {
+    id: number;
+    incense_type: number;
+    incenseId: string;
+    name: string;
+    nameEn: string;
+    image: string;
+    serial: number;
+    incense_amount: number;
+    meritPoints: number;
+    incense_points_gained: number;
+    transactionSignature: string;
+    mintedAt: string;
+}
+
+export interface IncenseHistoryResponse {
+    user_pubkey: string;
+    history: IncenseHistoryItem[];
+    count: number;
 }

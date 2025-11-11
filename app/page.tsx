@@ -6,9 +6,38 @@ import { Card } from '@/components/ui/card';
 import { useLanguage } from '@/lib/i18n/context';
 import { Flame, Heart, ScrollText, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { getStats } from '@/lib/api';
+import type { StatsResponse } from '@/lib/api/types';
 
 export default function LandingPage() {
   const { t } = useLanguage();
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      setLoading(true);
+      try {
+        const data = await getStats();
+        setStats(data);
+      } catch (error) {
+        console.error('Failed to load stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStats();
+  }, []);
+
+  // 格式化数字显示
+  const formatNumber = (num: number): string => {
+    if (num >= 1000) {
+      const k = num / 1000;
+      return `${k.toFixed(1)}K+`.replace('.0', '');
+    }
+    return `${num}+`;
+  };
 
   return (
     <div className='min-h-screen'>
@@ -85,25 +114,33 @@ export default function LandingPage() {
             {/* Stats */}
             <div className='grid grid-cols-2 md:grid-cols-4 gap-6 pt-12 max-w-4xl mx-auto'>
               <div className='text-center'>
-                <div className='text-3xl font-bold text-primary'>10K+</div>
+                <div className='text-3xl font-bold text-primary'>
+                  {loading ? '—' : stats ? formatNumber(stats.total_users) : '—'}
+                </div>
                 <div className='text-sm text-muted-foreground'>
                   {t.temple.stats.believers}
                 </div>
               </div>
               <div className='text-center'>
-                <div className='text-3xl font-bold text-primary'>50K+</div>
+                <div className='text-3xl font-bold text-primary'>
+                  {loading ? '—' : stats ? formatNumber(stats.total_incense_points) : '—'}
+                </div>
                 <div className='text-sm text-muted-foreground'>
                   {t.incense.burned}
                 </div>
               </div>
               <div className='text-center'>
-                <div className='text-3xl font-bold text-primary'>25K+</div>
+                <div className='text-3xl font-bold text-primary'>
+                  {loading ? '—' : stats ? formatNumber(stats.total_draw_fortune) : '—'}
+                </div>
                 <div className='text-sm text-muted-foreground'>
                   {t.temple.stats.fortunes}
                 </div>
               </div>
               <div className='text-center'>
-                <div className='text-3xl font-bold text-primary'>15K+</div>
+                <div className='text-3xl font-bold text-primary'>
+                  {loading ? '—' : stats ? formatNumber(stats.total_wishes) : '—'}
+                </div>
                 <div className='text-sm text-muted-foreground'>
                   {t.temple.stats.wishes}
                 </div>

@@ -2,10 +2,11 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { getDonationLeaderboard, getTempleLevel } from '@/lib/api';
+import { getDonationLeaderboard, getTempleLevel, getRecentActivities } from '@/lib/api';
 import type {
   DonationLeaderboardItem,
-  TempleLevelResponse
+  TempleLevelResponse,
+  RecentActivityItem
 } from '@/lib/api/types';
 import {
   BarChart3,
@@ -25,15 +26,17 @@ export default function TempleHomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<DonationLeaderboardItem[]>([]);
+  const [activities, setActivities] = useState<RecentActivityItem[]>([]);
 
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    Promise.all([getTempleLevel(), getDonationLeaderboard()])
-      .then(([level, board]) => {
+    Promise.all([getTempleLevel(), getDonationLeaderboard(), getRecentActivities()])
+      .then(([level, board, activities]) => {
         if (!mounted) return;
         setData(level);
         setLeaderboard(board.leaderboard || []);
+        setActivities(activities.activities || []);
         setError(null);
       })
       .catch((e) => {
@@ -86,6 +89,20 @@ export default function TempleHomePage() {
   }
   function shortKey(k: string) {
     return k ? `${k.slice(0, 4)}...${k.slice(-4)}` : '';
+  }
+  function formatTimeAgo(dateString: string) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+
+    if (diffInMinutes < 1) return 'just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} days ago`;
   }
 
   const templeName = data?.level_name_en
@@ -320,54 +337,34 @@ export default function TempleHomePage() {
             <TrendingUp className='w-5 h-5 text-muted-foreground' />
           </div>
           <div className='space-y-3'>
-            {[
-              {
-                user: '0x7a3b...4f2c',
-                action: 'burned Supreme Incense',
-                time: '2 min ago'
-              },
-              {
-                user: '0x9d1e...8a6b',
-                action: 'drew Great Fortune',
-                time: '5 min ago'
-              },
-              {
-                user: '0x4c2f...1d9e',
-                action: 'made a wish',
-                time: '8 min ago'
-              },
-              {
-                user: '0x6b8a...3e7c',
-                action: 'donated 1 SOL',
-                time: '12 min ago'
-              },
-              {
-                user: '0x2e5d...9f1a',
-                action: 'burned Dragon Incense',
-                time: '15 min ago'
-              }
-            ].map((activity, i) => (
-              <div
-                key={i}
-                className='flex items-center justify-between py-2 border-b border-border/50 last:border-0'>
-                <div className='flex items-center gap-3'>
-                  <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center'>
-                    <Users className='w-4 h-4 text-primary' />
+            {activities.length === 0 ? (
+              <p className='text-sm text-muted-foreground text-center py-4'>
+                No recent activities
+              </p>
+            ) : (
+              activities.map((activity) => (
+                <div
+                  key={`${activity.user_pubkey}-${activity.created_at}`}
+                  className='flex items-center justify-between py-2 border-b border-border/50 last:border-0'>
+                  <div className='flex items-center gap-3'>
+                    <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center'>
+                      <Users className='w-4 h-4 text-primary' />
+                    </div>
+                    <div>
+                      <p className='text-sm'>
+                        <span className='font-medium'>{shortKey(activity.user_pubkey)}</span>{' '}
+                        <span className='text-muted-foreground'>
+                          {activity.action}
+                        </span>
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className='text-sm'>
-                      <span className='font-medium'>{activity.user}</span>{' '}
-                      <span className='text-muted-foreground'>
-                        {activity.action}
-                      </span>
-                    </p>
-                  </div>
+                  <span className='text-xs text-muted-foreground'>
+                    {formatTimeAgo(activity.created_at)}
+                  </span>
                 </div>
-                <span className='text-xs text-muted-foreground'>
-                  {activity.time}
-                </span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
 
@@ -384,15 +381,14 @@ export default function TempleHomePage() {
                 className='flex items-center justify-between py-2 border-b border-border/50 last:border-0'>
                 <div className='flex items-center gap-3'>
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      contributor.rank === 1
-                        ? 'bg-yellow-500/20 text-yellow-500'
-                        : contributor.rank === 2
+                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${contributor.rank === 1
+                      ? 'bg-yellow-500/20 text-yellow-500'
+                      : contributor.rank === 2
                         ? 'bg-gray-400/20 text-gray-400'
                         : contributor.rank === 3
-                        ? 'bg-orange-500/20 text-orange-500'
-                        : 'bg-primary/10 text-primary'
-                    }`}>
+                          ? 'bg-orange-500/20 text-orange-500'
+                          : 'bg-primary/10 text-primary'
+                      }`}>
                     {contributor.rank}
                   </div>
                   <div>

@@ -13,6 +13,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 import { getWishes, likeWish, ipfsUpload, getUserWishes } from '@/lib/api';
 import type { WishItem } from '@/lib/api/types';
+import { WishDetailDialog } from '@/components/wish-detail-dialog';
 
 const mockMyWishes: WishItem[] = [
   {
@@ -66,6 +67,8 @@ export default function WishesPage() {
   const [ipfsLoading, setIpfsLoading] = useState(false);
   const [myWishes, setMyWishes] = useState<WishItem[]>([]);
   const [myWishesLoading, setMyWishesLoading] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedWish, setSelectedWish] = useState<WishItem | null>(null);
 
   const reloadMyWishes = async () => {
     if (!connected || !publicKey) {
@@ -102,6 +105,11 @@ export default function WishesPage() {
   useEffect(() => {
     loadWishes();
   }, []);
+
+  const openWishDetail = (wish: WishItem) => {
+    setSelectedWish(wish);
+    setDetailOpen(true);
+  };
 
   useEffect(() => {
     if (!userPubkey) {
@@ -146,8 +154,10 @@ export default function WishesPage() {
       }
       setWishesCount(wishesCount + 1);
       setWishText('');
-      await loadWishes();
-      await reloadMyWishes();
+      setTimeout(async () => {
+        await loadWishes();
+        await reloadMyWishes();
+      }, 3000);
     } catch (err: any) {
       setIpfsLoading(false);
       console.error('[solji] Wish submission failed:', err);
@@ -398,7 +408,8 @@ export default function WishesPage() {
                 {wishes.map((wish) => (
                   <Card
                     key={wish.id}
-                    className='p-4 bg-muted/30 hover:bg-muted/50 transition-colors'>
+                    className='p-4 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer'
+                    onClick={() => openWishDetail(wish)}>
                     <div className='space-y-2'>
                       <div className='flex items-center justify-between'>
                         <span className='text-xs font-medium text-muted-foreground'>
@@ -412,23 +423,41 @@ export default function WishesPage() {
                       <div className='flex items-center justify-between pt-2'>
                         <div className='flex items-center gap-2'>
                           <button
-                            disabled={liking === wish.wish_id || wishesLoading || wish.is_liked}
-                            onClick={() => { if (!wish.is_liked) handleLikeWish(wish.wish_id); }}
-                            className={`group flex items-center px-2 py-1 rounded transition-colors ${(liking === wish.wish_id || wish.is_liked) ? 'opacity-70 pointer-events-none' : ''}`}
+                            disabled={liking === wish.wish_id || wishesLoading || wish.is_liked || wish.self_wish}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!wish.is_liked && !wish.self_wish) handleLikeWish(wish.wish_id);
+                            }}
+                            className={`group flex items-center px-2 py-1 rounded transition-colors ${(liking === wish.wish_id || wish.is_liked || wish.self_wish) ? 'opacity-70 pointer-events-none' : ''}`}
                             aria-label='like'
-                            aria-disabled={wish.is_liked}
+                            aria-disabled={wish.is_liked || !!wish.self_wish}
                           >
                             <Heart
-                              className={`w-4 h-4 ${(liking === wish.wish_id) ? 'animate-pulse text-pink-500' : 'text-pink-500 group-hover:scale-110'}`}
+                              className={`w-4 h-4 ${(liking === wish.wish_id) ? 'animate-pulse text-pink-500' : (wish.self_wish ? 'text-muted-foreground' : 'text-pink-500 group-hover:scale-110')}`}
                               fill={wish.is_liked ? 'currentColor' : 'none'}
                             />
                             <span className='ml-1 text-xs text-muted-foreground'>{wish.likes} likes</span>
                           </button>
                         </div>
-                        <Badge variant='secondary' className='text-xs'>
+                        <Button
+                          variant='secondary'
+                          size='sm'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const baseUrl =
+                              typeof window !== 'undefined'
+                                ? window.location.href
+                                : 'https://devnet.solji.fun/temple/wishes';
+                            const text = encodeURIComponent(wish.content);
+                            const url = encodeURIComponent(baseUrl);
+                            const via = 'solji';
+                            const intent = `https://twitter.com/intent/tweet?text=${text}&url=${url}&via=${via}`;
+                            window.open(intent, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
                           <Share2 className='w-3 h-3 mr-1' />
-                          Shared
-                        </Badge>
+                          Share
+                        </Button>
                       </div>
                     </div>
                   </Card>
@@ -491,6 +520,7 @@ export default function WishesPage() {
           )}
         </Card>
       </div>
+      <WishDetailDialog open={detailOpen} onOpenChange={setDetailOpen} wish={selectedWish} />
     </div>
   );
 }

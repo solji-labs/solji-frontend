@@ -11,7 +11,11 @@ import type {
     WishesResponse,
     ProfileNftsResponse,
     ProfileActivitiesResponse,
-    ProfileAchievementsResponse
+    ProfileAchievementsResponse,
+    StatsResponse,
+    RecentActivitiesResponse,
+    IncenseBurnCountResponse,
+    IncenseHistoryResponse
 } from './types';
 
 export async function getTempleLevel(): Promise<TempleLevelResponse> {
@@ -121,4 +125,20 @@ export async function getProfile(): Promise<ProfileResponse | null> {
 
 export async function ipfsUpload(content: string): Promise<{ hash: string; size: number; url: string; content_hash: number[] }> {
     return httpPost<{ hash: string; size: number; url: string; content_hash: number[] }>(`/api/ipfs/upload`, { content });
+}
+
+export async function getStats(): Promise<StatsResponse> {
+    return httpGet<StatsResponse>('/api/stats');
+}
+
+export async function getRecentActivities(): Promise<RecentActivitiesResponse> {
+    return httpGet<RecentActivitiesResponse>('/api/temple/activities/recent');
+}
+
+export async function getIncenseBurnCount(userPubkey: string, incenseType: number): Promise<IncenseBurnCountResponse> {
+    return httpGet<IncenseBurnCountResponse>(`/api/incense/user/${userPubkey}/burn-count/${incenseType}`);
+}
+
+export async function getIncenseHistory(userPubkey: string, limit: number = 20): Promise<IncenseHistoryResponse> {
+    return httpGet<IncenseHistoryResponse>(`/api/incense/user/${userPubkey}/history?limit=${limit}`);
 }
