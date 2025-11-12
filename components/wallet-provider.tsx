@@ -6,6 +6,7 @@ import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
+import StakefyProvider from './stakefy-provider';
 
 // 导入钱包适配器样式
 require('@solana/wallet-adapter-react-ui/styles.css');
@@ -32,7 +33,9 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
         <ConnectionProvider endpoint={endpoint}>
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
-                    {children}
+                    <StakefyProvider apiUrl="https://stakefy-x402-production.up.railway.app" network="devnet">
+                        {children}
+                    </StakefyProvider>
                 </WalletModalProvider>
             </WalletProvider>
         </ConnectionProvider>

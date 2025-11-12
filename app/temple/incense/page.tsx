@@ -13,6 +13,7 @@ import { checkAmuletDrop } from "@/lib/amulet-system"
 import { useWallet } from "@solana/wallet-adapter-react"
 import type { BurnIncenseResult } from "@/lib/contracts/burn-incense"
 import type { IncenseType } from "@/lib/types"
+import { getIncenseBurnCount, getIncenseHistory } from "@/lib/api"
 
 const INCENSE_ID_LIST = ["basic", "sandalwood", "dragon", "supreme"] as const
 type IncenseId = (typeof INCENSE_ID_LIST)[number]
@@ -65,8 +66,6 @@ const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: "basic", label: "Basic Incense" },
 ]
 
-const STORAGE_PREFIX = "solji-incense-nfts"
-
 const formatMintedAt = (value: string) => {
   try {
     return new Date(value).toLocaleString(undefined, {
@@ -90,45 +89,32 @@ const isIncenseId = (value: string): value is IncenseId => {
   return (INCENSE_ID_LIST as readonly string[]).includes(value)
 }
 
-const sanitizeStoredNfts = (raw: unknown): OwnedIncenseNft[] => {
-  if (!Array.isArray(raw)) {
-    return []
-  }
 
-  const now = Date.now()
-  return raw
-    .filter((item): item is Record<string, any> => item !== null && typeof item === "object")
+const mapApiHistoryToOwnedNfts = (history: Array<{
+  id: number
+  incenseId: string
+  serial: number
+  name: string
+  nameEn: string
+  meritPoints: number
+  mintedAt: string
+  transactionSignature: string
+  image: string
+}>): OwnedIncenseNft[] => {
+  return history
     .filter((item) => isIncenseId(item.incenseId))
-    .map((item, index) => {
-      const incenseId = item.incenseId as IncenseId
-      const serialValue =
-        typeof item.serial === "number" ? item.serial : Number(item.serial ?? index + 1)
-      const serial = Number.isFinite(serialValue) && serialValue > 0 ? serialValue : index + 1
-      const mintedAt =
-        typeof item.mintedAt === "string" && !Number.isNaN(Date.parse(item.mintedAt))
-          ? item.mintedAt
-          : new Date().toISOString()
-
-      return {
-        id:
-          typeof item.id === "string"
-            ? item.id
-            : `${incenseId}-${serial}-${now + index}`,
-        serial,
-        incenseId,
-        name: typeof item.name === "string" ? item.name : "Incense NFT",
-        nameEn: typeof item.nameEn === "string" ? item.nameEn : "",
-        meritPoints:
-          typeof item.meritPoints === "number"
-            ? item.meritPoints
-            : Number(item.meritPoints ?? 0) || 0,
-        mintedAt,
-        mintAddress: typeof item.mintAddress === "string" ? item.mintAddress : undefined,
-        transactionSignature:
-          typeof item.transactionSignature === "string" ? item.transactionSignature : undefined,
-        image: typeof item.image === "string" ? item.image : undefined,
-      }
-    })
+    .map((item) => ({
+      id: String(item.id),
+      serial: item.serial,
+      incenseId: item.incenseId as IncenseId,
+      name: item.name,
+      nameEn: item.nameEn,
+      meritPoints: item.meritPoints,
+      mintedAt: item.mintedAt,
+      mintAddress: undefined,
+      transactionSignature: item.transactionSignature,
+      image: item.image,
+    }))
 }
 
 export default function IncensePage() {
@@ -137,53 +123,46 @@ export default function IncensePage() {
   const [burnDialogOpen, setBurnDialogOpen] = useState(false)
   const [droppedAmulet, setDroppedAmulet] = useState<any>(null)
   const [incenseNfts, setIncenseNfts] = useState<OwnedIncenseNft[]>([])
-  const [storageLoaded, setStorageLoaded] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterValue>("all")
 
-  const storageKey = useMemo(() => {
-    const walletKey = publicKey?.toBase58() ?? "guest"
-    return `${STORAGE_PREFIX}-${walletKey}`
-  }, [publicKey])
-
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (!publicKey) {
+      setIncenseNfts([])
       return
     }
 
-    setStorageLoaded(false)
-    try {
-      const stored = window.localStorage.getItem(storageKey)
-      if (stored) {
-        const parsed = sanitizeStoredNfts(JSON.parse(stored))
-        setIncenseNfts(parsed)
-      } else {
+    const loadIncenseHistory = async () => {
+      try {
+        const userPubkey = publicKey.toBase58()
+        const response = await getIncenseHistory(userPubkey, 20)
+        const mappedNfts = mapApiHistoryToOwnedNfts(response.history)
+        setIncenseNfts(mappedNfts)
+      } catch (error) {
+        console.error("[solji] Failed to load incense NFTs from API:", error)
         setIncenseNfts([])
       }
-    } catch (error) {
-      console.error("[solji] Failed to load incense NFTs from storage:", error)
-      setIncenseNfts([])
-    } finally {
-      setStorageLoaded(true)
-    }
-  }, [storageKey])
-
-  useEffect(() => {
-    if (!storageLoaded || typeof window === "undefined") {
-      return
     }
 
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(incenseNfts))
-    } catch (error) {
-      console.error("[solji] Failed to persist incense NFTs:", error)
-    }
-  }, [incenseNfts, storageKey, storageLoaded])
+    loadIncenseHistory()
+  }, [publicKey])
+
+  // 移除 localStorage 写入逻辑，因为数据现在从 API 读取
+  // useEffect(() => {
+  //   if (!storageLoaded || typeof window === "undefined") {
+  //     return
+  //   }
+
+  //   try {
+  //     window.localStorage.setItem(storageKey, JSON.stringify(incenseNfts))
+  //   } catch (error) {
+  //     console.error("[solji] Failed to persist incense NFTs:", error)
+  //   }
+  // }, [incenseNfts, storageKey, storageLoaded])
 
   const filteredNfts = useMemo(
     () => (activeFilter === "all" ? incenseNfts : incenseNfts.filter((nft) => nft.incenseId === activeFilter)),
     [incenseNfts, activeFilter],
   )
-
   const mintedCounts = useMemo(() => {
     return incenseNfts.reduce((acc, nft) => {
       acc[nft.incenseId] = (acc[nft.incenseId] ?? 0) + 1
@@ -193,54 +172,93 @@ export default function IncensePage() {
 
   const totalMerit = useMemo(() => incenseNfts.reduce((sum, nft) => sum + nft.meritPoints, 0), [incenseNfts])
 
-  // Mock user burn counts - will be replaced with real data
-  const [burnCounts] = useState<Record<string, number>>({
-    basic: 3,
-    sandalwood: 1,
+  // 香型ID到incense_type的映射
+  const incenseTypeMap: Record<IncenseId, number> = {
+    basic: 1,
+    sandalwood: 2,
+    dragon: 3,
+    supreme: 4,
+  }
+
+  const [burnCounts, setBurnCounts] = useState<Record<IncenseId, number>>({
+    basic: 0,
+    sandalwood: 0,
     dragon: 0,
     supreme: 0,
   })
+
+  // 加载所有香型的燃烧次数
+  const loadBurnCounts = async () => {
+    if (!publicKey) return
+    const userPubkey = publicKey.toString()
+    const counts: Record<IncenseId, number> = {
+      basic: 0,
+      sandalwood: 0,
+      dragon: 0,
+      supreme: 0,
+    }
+    try {
+      await Promise.all(
+        INCENSE_ID_LIST.map(async (incenseId) => {
+          const incenseType = incenseTypeMap[incenseId]
+          try {
+            const response = await getIncenseBurnCount(userPubkey, incenseType)
+            counts[incenseId] = response.burn_count
+          } catch (error) {
+            console.error(`Failed to load burn count for ${incenseId}:`, error)
+          }
+        })
+      )
+      setBurnCounts(counts)
+    } catch (error) {
+      console.error('Failed to load burn counts:', error)
+    }
+  }
+
+  // 页面加载时获取燃烧次数
+  useEffect(() => {
+    if (publicKey) {
+      loadBurnCounts()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicKey])
 
   const handleBurnClick = (incenseId: string) => {
     setSelectedIncense(incenseId)
     setBurnDialogOpen(true)
   }
 
-  const handleBurnSuccess = (result: BurnIncenseResult, incense: IncenseType) => {
+  const handleBurnSuccess = async (result: BurnIncenseResult, incense: IncenseType) => {
     if (isIncenseId(incense.id)) {
-      setIncenseNfts((prev) => {
-        const entryId = result.transactionSignature ?? `${incense.id}-${Date.now()}`
-        if (prev.some((item) => item.id === entryId)) {
-          return prev
-        }
-
-        const nextSerial =
-          result.userIncenseNumber && result.userIncenseNumber > 0
-            ? result.userIncenseNumber
-            : prev.filter((item) => item.incenseId === incense.id).length + 1
-
-        const nextEntry: OwnedIncenseNft = {
-          id: entryId,
-          serial: nextSerial,
-          incenseId: incense.id as IncenseId,
-          name: incense.name,
-          nameEn: incense.nameEn,
-          meritPoints: result.meritPointsEarned ?? incense.meritPoints,
-          mintedAt: new Date().toISOString(),
-          mintAddress: result.nftMintAddress,
-          transactionSignature: result.transactionSignature,
-          image: incense.image,
-        }
-
-        return [nextEntry, ...prev].slice(0, 60)
-      })
-
       setActiveFilter((current) => {
         if (current === "all" || current === incense.id) {
           return current
         }
         return "all"
       })
+
+      // 烧香成功后，统一从 API 获取最新数据
+      if (publicKey && incenseTypeMap[incense.id]) {
+        // 设置延时后再触发获取并更新数据（给后端一些时间处理交易）
+        setTimeout(async () => {
+          try {
+            const userPubkey = publicKey.toBase58()
+            // 重新获取 incense 历史记录
+            const historyResponse = await getIncenseHistory(userPubkey, 20)
+            const mappedNfts = mapApiHistoryToOwnedNfts(historyResponse.history)
+            setIncenseNfts(mappedNfts)
+
+            // 更新燃烧次数
+            const burnCountResponse = await getIncenseBurnCount(userPubkey, incenseTypeMap[incense.id as IncenseId])
+            setBurnCounts((prev) => ({
+              ...prev,
+              [incense.id]: burnCountResponse.burn_count,
+            }))
+          } catch (error) {
+            console.error(`Failed to update data after burn for ${incense.id}:`, error)
+          }
+        }, 5000);
+      }
     } else {
       console.warn("[solji] Received incense with unsupported id:", incense.id)
     }
@@ -251,14 +269,17 @@ export default function IncensePage() {
     }
   }
 
-  const handleClearRecords = () => {
-    if (incenseNfts.length === 0) {
+  const handleRefreshRecords = async () => {
+    if (!publicKey) {
       return
     }
-    const confirmed =
-      typeof window === "undefined" ? true : window.confirm("Clear local incense NFT records?")
-    if (confirmed) {
-      setIncenseNfts([])
+    try {
+      const userPubkey = publicKey.toBase58()
+      const response = await getIncenseHistory(userPubkey, 20)
+      const mappedNfts = mapApiHistoryToOwnedNfts(response.history)
+      setIncenseNfts(mappedNfts)
+    } catch (error) {
+      console.error("[solji] Failed to refresh incense NFTs from API:", error)
     }
   }
 
@@ -297,7 +318,7 @@ export default function IncensePage() {
       {/* Incense Types Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {INCENSE_TYPES.map((incense) => {
-          const burnCount = burnCounts[incense.id] || 0
+          const burnCount = (isIncenseId(incense.id) ? burnCounts[incense.id] : 0) || 0
           const remaining = incense.dailyLimit - burnCount
 
           return (
@@ -382,8 +403,8 @@ export default function IncensePage() {
                 Merit earned{" "}
                 <span className="font-semibold text-primary">+{totalMerit}</span>
               </span>
-              <Button variant="outline" size="sm" onClick={handleClearRecords}>
-                Clear Local Records
+              <Button variant="outline" size="sm" onClick={handleRefreshRecords}>
+                Refresh
               </Button>
             </div>
           )}
