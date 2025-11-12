@@ -59,33 +59,49 @@ export default function TempleHomePage() {
     const wishes = data?.stats.total_wishes ?? 0;
     const fortunes = data?.stats.total_draw_fortune ?? 0;
     const incensePoints = data?.stats.total_incense_points ?? 0;
+    console.log("ssssss", wishes)
 
     const req = data?.next_level_requirements?.requirements;
+    const clampPct = (pct: number) =>
+      Math.min(100, Math.max(0, inscenceSafe(pct)));
+
     const donationsPct =
       req && req.donations_sol > 0
-        ? Math.min(100, (donations / req.donations_sol) * 100)
+        ? clampPct((donations / req.donations_sol) * 100)
         : 0;
     const wishesPct =
-      req && req.wishes > 0 ? Math.min(100, (wishes / req.wishes) * 100) : 0;
+      req && req.wishes > 0 ? clampPct((wishes / req.wishes) * 100) : 0;
     const fortunesPct =
       req && req.draw_fortune > 0
-        ? Math.min(100, (fortunes / req.draw_fortune) * 100)
+        ? clampPct((fortunes / req.draw_fortune) * 100)
         : 0;
     const incensePct =
       req && req.incense_points > 0
-        ? Math.min(100, (incensePoints / req.incense_points) * 100)
+        ? clampPct((incensePoints / req.incense_points) * 100)
         : 0;
 
     return {
-      donations: Math.round(donationsPct),
-      wishes: Math.round(wishesPct),
-      fortunes: Math.round(fortunesPct),
-      incense: Math.round(inscenceSafe(incensePct))
+      donations: donationsPct,
+      wishes: wishesPct,
+      fortunes: fortunesPct,
+      incense: incensePct
     };
   }, [data]);
 
   function inscenceSafe(v: number) {
     return isFinite(v) ? v : 0;
+  }
+
+  function formatPercent(pct: number) {
+    if (pct >= 1) {
+      return `${Math.round(pct)}`;
+    }
+    if (pct > 0) {
+      const digits = pct >= 0.1 ? 1 : 2;
+      const fixed = pct.toFixed(digits);
+      return fixed.replace(/0+$/, '').replace(/\.$/, '') || '0';
+    }
+    return '0';
   }
   function shortKey(k: string) {
     return k ? `${k.slice(0, 4)}...${k.slice(-4)}` : '';
@@ -183,7 +199,7 @@ export default function TempleHomePage() {
               <div className='flex items-center justify-between text-xs'>
                 <span>Incense</span>
                 <span className='text-muted-foreground'>
-                  {progress.incense}%
+                  {formatPercent(progress.incense)}%
                 </span>
               </div>
               <Progress value={progress.incense} className='h-2' />
@@ -192,7 +208,7 @@ export default function TempleHomePage() {
               <div className='flex items-center justify-between text-xs'>
                 <span>Fortunes</span>
                 <span className='text-muted-foreground'>
-                  {progress.fortunes}%
+                  {formatPercent(progress.fortunes)}%
                 </span>
               </div>
               <Progress value={progress.fortunes} className='h-2' />
@@ -201,7 +217,7 @@ export default function TempleHomePage() {
               <div className='flex items-center justify-between text-xs'>
                 <span>Wishes</span>
                 <span className='text-muted-foreground'>
-                  {progress.wishes}%
+                  {formatPercent(progress.wishes)}%
                 </span>
               </div>
               <Progress value={progress.wishes} className='h-2' />
@@ -210,7 +226,7 @@ export default function TempleHomePage() {
               <div className='flex items-center justify-between text-xs'>
                 <span>Donations</span>
                 <span className='text-muted-foreground'>
-                  {progress.donations}%
+                  {formatPercent(progress.donations)}%
                 </span>
               </div>
               <Progress value={progress.donations} className='h-2' />

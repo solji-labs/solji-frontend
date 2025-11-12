@@ -6,11 +6,12 @@ import { Card } from '@/components/ui/card';
 import { FORTUNE_LEVELS } from '@/lib/constants';
 import type { FortuneLevel } from '@/lib/types';
 import { Info, RefreshCw, ScrollText, Share2, Sparkles, AlertCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDrawFortune } from '@/hooks/use-draw-fortune';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { getFortuneHistory } from '@/lib/api';
 import type { FortuneHistoryItem } from '@/lib/api/types';
+import { FortuneHistoryDialog } from '@/components/fortune-history-dialog';
 
 const FORTUNE_TEXTS: Record<FortuneLevel, string[]> = {
   大吉: [
@@ -60,6 +61,10 @@ export default function FortunePage() {
   } | null>(null);
   const [fortuneHistory, setFortuneHistory] = useState<FortuneHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [selectedFortune, setSelectedFortune] = useState<FortuneHistoryItem | null>(null);
+
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { connected, publicKey } = useWallet();
   const { loading, error, result, drawFortune, resetState } = useDrawFortune();
@@ -90,6 +95,42 @@ export default function FortunePage() {
       loadFortuneHistory();
     }
   }, [connected, publicKey]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleHistoryRefresh = () => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    refreshTimeoutRef.current = setTimeout(() => {
+      loadFortuneHistory()
+        .catch(() => { })
+        .finally(() => {
+          refreshTimeoutRef.current = null;
+        });
+    }, 5000);
+  };
+
+  const getShareBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.href;
+    }
+    return 'https://devnet.solji.fun/temple/fortune';
+  };
+
+  const shareToX = (text: string, url = getShareBaseUrl()) => {
+    if (typeof window === 'undefined') return;
+    const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      text
+    )}&url=${encodeURIComponent(url)}&via=solji`;
+    window.open(intent, '_blank', 'noopener,noreferrer');
+  };
 
   const handleDrawFortune = async () => {
     if (!connected) {
@@ -122,7 +163,6 @@ export default function FortunePage() {
       };
 
       const fortuneLevel = fortuneMapping[drawResult.fortune] || '小吉';
-      const selectedLevel = FORTUNE_LEVELS.find(level => level.level === fortuneLevel) || FORTUNE_LEVELS[2];
       const texts = FORTUNE_TEXTS[fortuneLevel];
       const randomText = texts[Math.floor(Math.random() * texts.length)];
 
@@ -135,9 +175,8 @@ export default function FortunePage() {
       setCurrentFortune(fortune);
       setHasDrawnToday(true);
 
-      // 抽签成功后刷新历史记录
-      await loadFortuneHistory();
-
+      // 抽签成功后延迟5秒刷新历史列表
+      scheduleHistoryRefresh();
     } catch (error: any) {
       console.error('[solji] 抽签失败:', error);
       // 错误已经在 hook 中处理，这里不需要额外处理
@@ -145,8 +184,9 @@ export default function FortunePage() {
   };
 
   const shareFortune = () => {
-    console.log('[solji] Sharing fortune to social media');
-    alert('Share to X (Twitter) to earn +1 merit point!');
+    if (!currentFortune) return;
+    const shareText = `今日抽签：${currentFortune.level}。${currentFortune.text}`;
+    shareToX(shareText);
   };
 
   const getFortuneColor = (level: FortuneLevel) => {
@@ -188,6 +228,41 @@ export default function FortunePage() {
       month: '2-digit',
       day: '2-digit'
     });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  };
+
+  const handleHistoryClick = (fortune: FortuneHistoryItem) => {
+    setSelectedFortune(fortune);
+    setIsHistoryDialogOpen(true);
+  };
+
+  const shareHistoryFortune = (fortune: FortuneHistoryItem) => {
+    const level = mapFortuneTextToLevel(fortune.fortune_text);
+    const shareText = `我在 Solji Temple 抽到了 ${level}，签文：${fortune.fortune_text}。`;
+    shareToX(shareText);
+  };
+
+  const handleHistoryDialogOpenChange = (open: boolean) => {
+    setIsHistoryDialogOpen(open);
+    if (!open) {
+      setSelectedFortune(null);
+    }
+  };
+
+  const handleHistoryDialogClose = () => {
+    handleHistoryDialogOpenChange(false);
   };
 
   return (
@@ -346,7 +421,7 @@ export default function FortunePage() {
                 onClick={shareFortune}
                 className='flex-1 bg-background/50 backdrop-blur-sm'>
                 <Share2 className='w-4 h-4 mr-2' />
-                Share (+1 Merit)
+                Share on X (+1 Merit)
               </Button>
               <Button
                 onClick={async () => {
@@ -374,7 +449,10 @@ export default function FortunePage() {
         ) : fortuneHistory.length > 0 ? (
           <div className='space-y-3'>
             {fortuneHistory.map((fortune) => (
-              <Card key={fortune.id} className='temple-card p-4'>
+              <Card
+                key={fortune.id}
+                className='temple-card p-4 transition cursor-pointer hover:border-primary/60 hover:bg-muted/30'
+                onClick={() => handleHistoryClick(fortune)}>
                 <div className='flex items-center justify-between'>
                   <div className='flex items-center gap-3'>
                     <div className='w-10 h-10 rounded-lg bg-muted flex items-center justify-center'>
@@ -413,6 +491,17 @@ export default function FortunePage() {
           </div>
         )}
       </div>
+
+      <FortuneHistoryDialog
+        open={isHistoryDialogOpen}
+        onOpenChange={handleHistoryDialogOpenChange}
+        onClose={handleHistoryDialogClose}
+        fortune={selectedFortune}
+        mapFortuneTextToLevel={mapFortuneTextToLevel}
+        getFortuneColor={getFortuneColor}
+        formatDateTime={formatDateTime}
+        onShare={shareHistoryFortune}
+      />
     </div>
   );
 }
