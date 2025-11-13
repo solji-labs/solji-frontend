@@ -7,59 +7,26 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Globe, Heart, Info, Lock, Share2, Sparkles, RefreshCw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCreateWish } from '@/hooks/use-create-wish';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
-import { getWishes, likeWish, ipfsUpload, getUserWishes } from '@/lib/api';
+import { getWishes, likeWish, ipfsUpload, getUserWishes, getUserDailyWishCount } from '@/lib/api';
 import type { WishItem } from '@/lib/api/types';
 import { WishDetailDialog } from '@/components/wish-detail-dialog';
 
-const mockMyWishes: WishItem[] = [
-  {
-    id: 9001,
-    wish_id: 108,
-    content: 'Wishing my family good health, peace, and joyful news all year.',
-    user_pubkey: 'DemoUser1111AAAA',
-    likes: 42,
-    created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 80).toISOString(),
-    is_liked: false
-  },
-  {
-    id: 9002,
-    wish_id: 256,
-    content:
-      'Hoping our startup launches smoothly this year and the whole team finds their shine.',
-    user_pubkey: 'DemoUser2222BBBB',
-    likes: 37,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-    is_liked: false
-  },
-  {
-    id: 9003,
-    wish_id: 512,
-    content: 'May the world see less conflict and more warmth and understanding.',
-    user_pubkey: 'DemoUser3333CCCC',
-    likes: 58,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString(),
-    is_liked: false
-  }
-];
 
 export default function WishesPage() {
   const [wishText, setWishText] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-  const [wishesCount, setWishesCount] = useState(0);
   const [wishes, setWishes] = useState<WishItem[]>([]);
   const [wishesLoading, setWishesLoading] = useState(false);
   const [totalWishesCount, setTotalWishesCount] = useState(0);
-  const maxFreeWishes = 3;
+  const [dailyWishCount, setDailyWishCount] = useState(0);
+  const [dailyWishLimit, setDailyWishLimit] = useState(3);
 
   const { wallet, connected, publicKey } = useWallet();
-  const { createWish, isLoading, error, clearError } = useCreateWish();
+  const { createWish, isLoading } = useCreateWish();
   const userPubkey = publicKey?.toBase58();
 
   // 点赞loading状态，用wishId作为key
@@ -86,6 +53,23 @@ export default function WishesPage() {
     }
   };
 
+  const loadDailyWishCount = useCallback(async () => {
+    if (!connected || !publicKey) {
+      setDailyWishCount(0);
+      setDailyWishLimit(3);
+      return;
+    }
+
+    try {
+      const response = await getUserDailyWishCount(publicKey.toString());
+      setDailyWishCount(response.daily_wish_count ?? 0);
+      setDailyWishLimit(response.max_daily_limit ?? 3);
+    } catch (error) {
+      console.error('Failed to load daily wish count:', error);
+      // 保持默认值，提示用户稍后重试
+    }
+  }, [connected, publicKey]);
+
   // 加载许愿墙数据
   const loadWishes = async () => {
     setWishesLoading(true);
@@ -111,24 +95,11 @@ export default function WishesPage() {
     setDetailOpen(true);
   };
 
-  useEffect(() => {
-    if (!userPubkey) {
-      setWishesCount(0);
-      return;
-    }
-
-    const today = new Date();
-    const todaysWishes = wishes.filter(
-      (wish) =>
-        wish.user_pubkey === userPubkey && isSameDay(wish.created_at, today)
-    );
-    setWishesCount(todaysWishes.length);
-  }, [userPubkey, wishes]);
-
   // 我的许愿数据加载
   useEffect(() => {
     reloadMyWishes();
-  }, [connected, publicKey]);
+    loadDailyWishCount();
+  }, [connected, publicKey, loadDailyWishCount]);
 
   const handleSubmitWish = async () => {
     if (!wishText.trim()) return;
@@ -152,11 +123,13 @@ export default function WishesPage() {
       if (result.amuletDropped) {
         toast.success('congratulations! you got amulet!');
       }
-      setWishesCount(wishesCount + 1);
+      setDailyWishCount((prev) => Math.min(prev + 1, dailyWishLimit));
       setWishText('');
+      void loadDailyWishCount();
       setTimeout(async () => {
         await loadWishes();
         await reloadMyWishes();
+        await loadDailyWishCount();
       }, 3000);
     } catch (err: any) {
       setIpfsLoading(false);
@@ -194,15 +167,6 @@ export default function WishesPage() {
     return `${diffInDays} days ago`;
   };
 
-  const isSameDay = (dateString: string, referenceDate: Date) => {
-    const date = new Date(dateString);
-    return (
-      date.getFullYear() === referenceDate.getFullYear() &&
-      date.getMonth() === referenceDate.getMonth() &&
-      date.getDate() === referenceDate.getDate()
-    );
-  };
-
   // 缩短用户公钥显示
   const shortKey = (pubkey: string) => {
     return pubkey ? `${pubkey.slice(0, 4)}...${pubkey.slice(-4)}` : '';
@@ -212,7 +176,7 @@ export default function WishesPage() {
   // 使用接口返回的 myWishes，无需本地过滤/排序或mock
   const displayMyWishes = myWishes;
 
-  const remainingFreeWishes = Math.max(0, maxFreeWishes - wishesCount);
+  const remainingFreeWishes = Math.max(0, dailyWishLimit - dailyWishCount);
   const characterCount = wishText.length;
   const maxCharacters = 200;
 
@@ -237,7 +201,7 @@ export default function WishesPage() {
             <Info className='w-5 h-5 text-primary mt-0.5 flex-shrink-0' />
             <div className='text-sm text-muted-foreground leading-relaxed'>
               <p>
-                Make 3 free wishes per day. Additional wishes cost 5 merit
+                Make up to {dailyWishLimit} free wishes per day. Additional wishes cost 5 merit
                 points. Each wish is minted as an NFT and earns you +1 merit
                 point. Share your wish to social media for +1 bonus merit point.
               </p>

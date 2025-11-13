@@ -116,6 +116,12 @@ export interface WishesResponse {
     };
 }
 
+export interface UserWishCountResponse {
+    daily_wish_count: number;
+    max_daily_limit: number;
+    user_pubkey: string;
+}
+
 export interface ProfileStats {
     total_incense_burned: number;
     total_fortunes_drawn: number;

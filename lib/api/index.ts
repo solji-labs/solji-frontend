@@ -15,7 +15,8 @@ import type {
     StatsResponse,
     RecentActivitiesResponse,
     IncenseBurnCountResponse,
-    IncenseHistoryResponse
+    IncenseHistoryResponse,
+    UserWishCountResponse
 } from './types';
 
 export async function getTempleLevel(): Promise<TempleLevelResponse> {
@@ -67,6 +68,16 @@ export async function getWishes(userPubkey?: string): Promise<WishesResponse> {
 
 export async function getUserWishes(userPubkey: string): Promise<WishesResponse> {
     return httpGet<WishesResponse>(`/api/wishes/user/${userPubkey}`, {
+        headers: {
+            'Content-Type': 'application/json',
+            'X-User-Pubkey': userPubkey,
+        },
+        cache: 'no-store',
+    });
+}
+
+export async function getUserDailyWishCount(userPubkey: string): Promise<UserWishCountResponse> {
+    return httpGet<UserWishCountResponse>(`/api/wishes/user/${userPubkey}/count`, {
         headers: {
             'Content-Type': 'application/json',
             'X-User-Pubkey': userPubkey,
