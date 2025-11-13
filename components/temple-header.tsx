@@ -18,6 +18,7 @@ import { WalletButton } from './wallet-button';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { getProfileBasic } from '@/lib/api';
 import { RefreshCw } from 'lucide-react';
+import { useMeritRefresh } from '@/lib/merit-refresh/context';
 
 export function TempleHeader() {
   const { t } = useI18n();
@@ -25,6 +26,7 @@ export function TempleHeader() {
   const [meritPoints, setMeritPoints] = useState<number | null>(null);
   const [rank, setRank] = useState<string | null>(null);
   const [meritLoading, setMeritLoading] = useState(false);
+  const { refreshToken } = useMeritRefresh();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +53,7 @@ export function TempleHeader() {
     };
     load();
     return () => { cancelled = true; };
-  }, [connected, publicKey]);
+  }, [connected, publicKey, refreshToken]);
 
   return (
     <header className='fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-lg'>

@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { getWishes, likeWish, ipfsUpload, getUserWishes, getUserDailyWishCount } from '@/lib/api';
 import type { WishItem } from '@/lib/api/types';
 import { WishDetailDialog } from '@/components/wish-detail-dialog';
+import { useMeritRefresh } from '@/lib/merit-refresh/context';
 
 
 export default function WishesPage() {
@@ -28,6 +29,7 @@ export default function WishesPage() {
   const { wallet, connected, publicKey } = useWallet();
   const { createWish, isLoading } = useCreateWish();
   const userPubkey = publicKey?.toBase58();
+  const { triggerRefresh } = useMeritRefresh();
 
   // 点赞loading状态，用wishId作为key
   const [liking, setLiking] = useState<number | null>(null);
@@ -107,6 +109,7 @@ export default function WishesPage() {
       toast.error('请先连接钱包');
       return;
     }
+    const exceedsDailyLimit = dailyWishCount >= dailyWishLimit;
     try {
       setIpfsLoading(true);
       const ipfs = await ipfsUpload(wishText.trim());
@@ -130,6 +133,9 @@ export default function WishesPage() {
         await loadWishes();
         await reloadMyWishes();
         await loadDailyWishCount();
+        if (exceedsDailyLimit) {
+          triggerRefresh();
+        }
       }, 3000);
     } catch (err: any) {
       setIpfsLoading(false);
