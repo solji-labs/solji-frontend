@@ -1,6 +1,7 @@
 import { I18nProvider } from '@/lib/i18n/context';
 import { ThemeProvider } from '@/lib/theme/context';
 import { WalletContextProvider } from '@/components/wallet-provider';
+import { MeritRefreshProvider } from '@/lib/merit-refresh/context';
 import { Analytics } from '@vercel/analytics/next';
 import { GeistMono } from 'geist/font/mono';
 import { GeistSans } from 'geist/font/sans';
@@ -47,10 +48,12 @@ export default function RootLayout({
         <WalletContextProvider>
           <ThemeProvider>
             <I18nProvider>
-              <Suspense fallback={null}>
-                {children}
-                <Analytics />
-              </Suspense>
+              <MeritRefreshProvider>
+                <Suspense fallback={null}>
+                  {children}
+                  <Analytics />
+                </Suspense>
+              </MeritRefreshProvider>
             </I18nProvider>
           </ThemeProvider>
         </WalletContextProvider>
