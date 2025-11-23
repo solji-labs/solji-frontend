@@ -6,7 +6,9 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "generate:farcaster": "node scripts/generate-farcaster-json.cjs",
+    "tunnel": "localtunnel --port 3000 --print-requests"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",

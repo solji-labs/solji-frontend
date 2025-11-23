@@ -1,0 +1,16 @@
+{
+  "accountAssociation": {
+    "header": "x-farcaster-miniapp-account"
+  },
+  "frame": {
+    "version": "next",
+    "imageUrl": "https://devnet.solji.fun/logo.png",
+    "button": {
+      "title": "Launch Solji",
+      "action": {
+        "type": "launch_miniapp",
+        "url": "https://devnet.solji.fun/temple"
+      }
+    }
+  }
+}
