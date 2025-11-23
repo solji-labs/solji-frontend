@@ -1,5 +1,11 @@
 import type { IncenseType, DonationTier } from "./types"
 
+// Farcaster Mini App 配置
+export const APP_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_DOMAIN
+    ? `https://${process.env.NEXT_PUBLIC_APP_DOMAIN}`
+    : process.env.NEXT_PUBLIC_APP_BASE_URL || 'http://localhost:3000'
+
 export const INCENSE_TYPES: IncenseType[] = [
   {
     id: "basic",
