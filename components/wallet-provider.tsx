@@ -16,8 +16,16 @@ interface WalletContextProviderProps {
 
 export function WalletContextProvider({ children }: WalletContextProviderProps) {
     // 网络配置
-    const network = WalletAdapterNetwork.Devnet;
-    const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+    // 在 Next.js 客户端组件中，只能访问 NEXT_PUBLIC_ 开头的环境变量
+    // 如果没有配置 NEXT_PUBLIC_RPC_URL，则使用默认的 devnet endpoint
+    const endpoint = useMemo(() => {
+        // 优先使用环境变量中的 RPC URL
+        if (process.env.NEXT_PUBLIC_RPC_URL) {
+            return process.env.NEXT_PUBLIC_RPC_URL;
+        }
+        // 如果没有配置，使用默认的 devnet endpoint
+        return clusterApiUrl(WalletAdapterNetwork.Devnet);
+    }, []);
 
     return (
         // FarcasterSolanaProvider 内部已经包含了 ConnectionProvider 和 WalletProvider
