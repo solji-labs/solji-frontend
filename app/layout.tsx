@@ -11,6 +11,7 @@ import { Suspense } from 'react';
 import Script from 'next/script';
 import { APP_BASE_URL } from '@/lib/constants';
 import { generateFrameMetadata } from '@/lib/generateFrameMetadata';
+import { FarcasterInit } from '@/components/farcaster-init';
 import './globals.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -74,6 +75,7 @@ export default function RootLayout({
           <ThemeProvider>
             <I18nProvider>
               <MeritRefreshProvider>
+                <FarcasterInit />
                 <Suspense fallback={null}>
                   {children}
                   <Analytics />
