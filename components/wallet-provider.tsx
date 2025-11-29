@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { FarcasterSolanaProvider } from '@farcaster/mini-app-solana';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
 import StakefyProvider from './stakefy-provider';
@@ -20,24 +19,17 @@ export function WalletContextProvider({ children }: WalletContextProviderProps) 
     const network = WalletAdapterNetwork.Devnet;
     const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
-    // 支持的钱包
-    const wallets = useMemo(
-        () => [
-            new PhantomWalletAdapter(),
-            new SolflareWalletAdapter(),
-        ],
-        []
-    );
-
     return (
-        <ConnectionProvider endpoint={endpoint}>
-            <WalletProvider wallets={wallets} autoConnect>
-                <WalletModalProvider>
-                    <StakefyProvider apiUrl="https://stakefy-x402-production.up.railway.app" network="devnet">
-                        {children}
-                    </StakefyProvider>
-                </WalletModalProvider>
-            </WalletProvider>
-        </ConnectionProvider>
+        // FarcasterSolanaProvider 内部已经包含了 ConnectionProvider 和 WalletProvider
+        // 它会自动注册 Farcaster 钱包并通过 Wallet Standard 使用
+        // 在 Farcaster 环境中会自动选择 Farcaster 钱包
+        // 在非 Farcaster 环境中，仍然可以通过 WalletModalProvider 选择其他钱包
+        <FarcasterSolanaProvider endpoint={endpoint}>
+            <WalletModalProvider>
+                <StakefyProvider apiUrl="https://stakefy-x402-production.up.railway.app" network="devnet">
+                    {children}
+                </StakefyProvider>
+            </WalletModalProvider>
+        </FarcasterSolanaProvider>
     );
 }
